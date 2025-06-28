@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ChatBot Interface</title>
+    <style>
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            font-family: Arial, sans-serif;
+        }
+        .chat-box {
+            height: 500px;
+            border: 1px solid #ccc;
+            padding: 20px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+        .message {
+            margin: 10px 0;
+            padding: 8px 12px;
+            border-radius: 15px;
+            max-width: 70%;
+        }
+        .user-message {
+            background-color: #e3f2fd;
+            margin-left: auto;
+        }
+        .bot-message {
+            background-color: #f5f5f5;
+        }
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+        input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="chat-box" id="chatBox"></div>
+    <div class="input-group">
+        <input type="text" id="userInput" placeholder="Enter your question...">
+        <button onclick="sendMessage()" id="sendBtn">send</button>
+    </div>
+</div>
+
+<script>
+    class ChatBot {
+        constructor(userId, apiKey, host, port) {
+            this.userId = userId;
+            this.apiKey = apiKey;
+            this.host = host;
+            this.port = port;
+            this.conversationId = null;
+            this.createConversation();
+        }
+
+        async createConversation() {
+            const url = `https://${this.host}:${this.port}/api/proxy/api/v1/create_conversation`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Apikey': this.apiKey,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    Inputs: {},
+                    UserID: this.userId
+                })
+            });
+            const data = await response.json();
+            this.conversationId = data.Conversation.AppConversationID;
+        }
+
+        async chat(query) {
+            if (!this.conversationId) {
+                await this.createConversation();
+            }
+
+            const url = `https://${this.host}:${this.port}/api/proxy/api/v1/chat_query_v2`;
+            const headers = {
+                'Apikey': this.apiKey,
+                'Content-Type': 'application/json'
+            };
+
+            const body = JSON.stringify({
+                Query: query,
+                AppConversationID: this.conversationId,
+                ResponseMode: 'streaming',
+                UserID: this.userId
+            });
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: headers,
+                body: body
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let result = '';
+            const startTime = Date.now();
+
+            const processStream = ({ done, value }) => {
+                if (done) {
+                    const duration = (Date.now() - startTime) / 1000;
+                    return { answer: result, duration: duration.toFixed(10) };
+                }
+
+                const chunk = decoder.decode(value, { stream: true });
+                chunk.split('\n\n').forEach(event => {
+                    const [header, data] = event.split('\ndata:');
+                    if (data) {
+                        try {
+                            const jsonData = JSON.parse(data.trim());
+                            if (jsonData.event === 'message') {
+                                result += jsonData.answer;
+                                this.appendMessage(jsonData.answer, false, true);
+                            }
+                            if (jsonData.event === 'message_end') {
+                                // Handling the message_end event
+                            }
+                        } catch (e) {
+                            console.error('Parse error:', e);
+                        }
+                    }
+                });
+
+                return reader.read().then(processStream);
+            };
+
+            return reader.read().then(processStream);
+        }
+
+        appendMessage(content, isUser = false, isPartial = false) {
+            const chatBox = document.getElementById('chatBox');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+
+            if (isPartial) {
+                const existingBotMessage = chatBox.lastElementChild;
+                if (existingBotMessage && !existingBotMessage.classList.contains('user-message')) {
+                    existingBotMessage.textContent += content;
+                    return;
+                }
+            }
+
+            // Add userId before user messages
+            if (isUser) {
+                messageDiv.textContent = `${this.userId}: ${content}`;
+            } else {
+                messageDiv.textContent = content;
+            }
+
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    }
+
+    // Initialize chatbot with Shopify customer ID
+    const chatBot = new ChatBot(
+        String(window.customerData.customerUniqueID),
+        "<your api key>",
+        "hiagent-byteplus.volcenginepaas.com",
+        "443"
+    );
+
+    async function sendMessage() {
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+
+        if (!userInput.value.trim()) return;
+
+        // Disable button
+        sendBtn.disabled = true;
+
+        // Show user messages
+        chatBot.appendMessage(userInput.value, true);
+
+        try {
+            const response = await chatBot.chat(userInput.value);
+            console.log(`Response Time: ${response.duration} seonds`);
+        } catch (error) {
+            console.error('Request Failed:', error);
+            chatBot.appendMessage('Request Failed，Please try again later', false);
+        }
+
+        // Clear the input box and enable the button
+        userInput.value = '';
+        sendBtn.disabled = false;
+    }
+
+    //Press Enter to send
+    document.getElementById('userInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendMessage();
+    });
+</script>
+</body>
+</html>

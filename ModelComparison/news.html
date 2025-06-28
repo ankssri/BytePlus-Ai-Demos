@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&amp;family=Montserrat:ital,wght@0,100..900;1,100..900&amp;display=swap" rel="stylesheet"/>
+<style>
+      body {
+        margin: 0;
+        display: flex;
+        justify-content: center;
+        font-family: 'Montserrat', sans-serif;
+        background-color: #f0f0f0; /* Added a light background for better visibility */
+      }
+      .carousel-container-wrapper { /* Renamed outer div for clarity */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 450px; /* As in original */
+        max-width: 100vw;
+        /* max-height: 100vh; */ /* Removed to allow content to define height */
+        /* max-height: 100svh; */
+        padding-top: 20px; /* Added some padding */
+        padding-bottom: 20px;
+      }
+      .carousel {
+        width: 100%;
+        position: relative;
+        overflow: hidden;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15); /* Added a subtle shadow */
+      }
+      .carousel-inner {
+        display: flex;
+        transition: transform 0.5s ease-in-out;
+        /* max-height: 100vh; */ /* Removed, height will be determined by items */
+      }
+      .carousel-item-container { /* New: container for image and text */
+        min-width: 100%; /* Each item takes full width of carousel */
+        position: relative;
+        flex-shrink: 0; /* Prevent shrinking */
+        background: #f5f5f5; /* Fallback background for items */
+      }
+      .carousel-item-container img {
+        width: 100%;
+        object-fit: cover;
+        display: block; /* Remove extra space below image */
+        max-height: 80vh; /* Limit image height to prevent excessively tall carousels */
+      }
+      .carousel-text-overlay { /* New: for text overlay */
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background-color: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 15px;
+        text-align: left;
+      }
+      .carousel-text-overlay h3 {
+        margin-top: 0;
+        margin-bottom: 5px;
+        font-size: 1.2em;
+        font-weight: 700;
+      }
+      .carousel-text-overlay p {
+        margin-bottom: 0;
+        font-size: 0.9em;
+        line-height: 1.4;
+      }
+      .carousel-buttons {
+        position: absolute;
+        top: 50%;
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        transform: translateY(-50%);
+        pointer-events: none;
+        z-index: 10; /* Ensure buttons are above text overlay if it goes high */
+      }
+      .carousel-button {
+        background-color: rgba(0, 0, 0, 0.5);
+        border: none;
+        padding: 10px 15px; /* Adjusted padding */
+        pointer-events: all;
+        cursor: pointer;
+        color: #fff; /* Added color for button text */
+        font-size: 1.5em; /* Made arrows larger */
+        border-radius: 5px; /* Slightly rounded buttons */
+      }
+      .carousel-button.prev {
+        margin-left: 10px;
+      }
+      .carousel-button.next {
+        margin-right: 10px;
+      }
+      .carousel-button svg { /* In case SVG icons are used in future */
+        fill: #fff;
+      }
+    </style>
+</head>
+<body>
+<div class="carousel-container-wrapper">
+<div class="carousel">
+<div class="carousel-inner" id="carouselInner">
+</div>
+<div class="carousel-buttons">
+<button class="carousel-button prev" onclick="prevSlide()">
+            ❮
+          </button>
+<button class="carousel-button next" onclick="nextSlide()">
+            ❯
+          </button>
+</div>
+</div>
+</div>
+<script>
+      let currentSlide = 0;
+
+      // Data for each slide: image URL, title, and descriptive text
+      const slideData = [
+        {
+          imageUrl: "image_f6bc76.png", // User uploaded
+          title: "Top Stocks To Buy",
+          text: "Featuring GAIL, HAL, NMDC, SAIL, and Max Financial Services. Analysts highlight these stocks for their promising upside potential.",
+          altText: "Stock market graph with text '5 Top Indian Stocks To Buy Now'"
+        },
+        {
+          imageUrl: "web_stroy_layout.webp", // User uploaded
+          // This image already contains formatted text for GAIL.
+          // The overlay text can be adjusted or removed if it's redundant with the image's content.
+          title: "GAIL (India)",
+          text: "Natural gas transmission and distribution. Target Price: ₹202 (+4.7% upside).",
+          altText: "GAIL (India) - Natural gas infrastructure"
+        },
+        {
+          imageUrl: "HAL.jpeg", // Generated image for HAL
+          title: "Hindustan Aeronautics Ltd (HAL)",
+          text: "Analysts suggest HAL as a 'buy'. Target Price: ₹5,385 (+6.8% upside).",
+          altText: "Hindustan Aeronautics Limited (HAL) aircraft or aerospace technology"
+        },
+        {
+          imageUrl: "image_f6bc76.png", // Fallback to generic stock image
+          title: "NMDC Ltd",
+          text: "Recommended for buying. Target Price: ₹77 (+7.3% upside). (Generic image used as placeholder)",
+          altText: "Stock market graph - NMDC placeholder"
+        },
+        {
+          imageUrl: "image_f6bc76.png", // Fallback to generic stock image
+          title: "Steel Authority of India Ltd (SAIL)",
+          text: "Also recommended for buying. Target Price: ₹132 (+5.6% upside). (Generic image used as placeholder)",
+          altText: "Stock market graph - SAIL placeholder"
+        },
+        {
+          imageUrl: "image_f6bc76.png", // Fallback to generic stock image
+          title: "Max Financial Services",
+          text: "Advised as a 'buy'. Target Price: ₹1,500 (+6.1% upside). (Generic image used as placeholder)",
+          altText: "Stock market graph - Max Financial Services placeholder"
+        }
+      ];
+
+      function loadSlides(slidesInfo) {
+        const carouselInner = document.getElementById("carouselInner");
+        carouselInner.innerHTML = ""; // Clear existing items
+
+        slidesInfo.forEach((slide, index) => {
+          const itemContainer = document.createElement("div");
+          itemContainer.classList.add("carousel-item-container");
+
+          const img = document.createElement("img");
+          img.src = slide.imageUrl;
+          img.alt = slide.altText || "Slide " + (index + 1);
+          itemContainer.appendChild(img);
+
+          // Add text overlay, unless the image for GAIL is too busy
+          // (The GAIL image you provided already has text, so this overlay might be optional for it)
+          const textOverlay = document.createElement("div");
+          textOverlay.classList.add("carousel-text-overlay");
+          
+          const titleElement = document.createElement("h3");
+          titleElement.textContent = slide.title;
+          textOverlay.appendChild(titleElement);
+          
+          const textElement = document.createElement("p");
+          textElement.textContent = slide.text;
+          textOverlay.appendChild(textElement);
+          
+          itemContainer.appendChild(textOverlay);
+          carouselInner.appendChild(itemContainer);
+        });
+
+        currentSlide = 0;
+        showSlide(0);
+      }
+
+      function showSlide(index) {
+        const slides = document.querySelectorAll(".carousel-item-container");
+        if (slides.length === 0) return;
+
+        if (index >= slides.length) {
+          currentSlide = 0;
+        } else if (index < 0) {
+          currentSlide = slides.length - 1;
+        } else {
+          currentSlide = index;
+        }
+        // Adjust the transform based on the container of the items
+        document.querySelector(".carousel-inner").style.transform =
+          "translateX(" + (-currentSlide * 100) + "%)";
+      }
+
+      function nextSlide() {
+        showSlide(currentSlide + 1);
+      }
+
+      function prevSlide() {
+        showSlide(currentSlide - 1);
+      }
+
+      // Load the slides with their respective images, titles, and text
+      loadSlides(slideData);
+    </script>
+</body>
+</html>
