@@ -408,10 +408,10 @@ tab1, tab2 = st.tabs(["Image Editing", "Character Retention"])
 
 # Tab 1: Image Editing with Seededit v3.0
 with tab1:
-    st.write("Upload an image and provide a prompt to edit it using BytePlus Seededit API")
+    st.write("Upload an image (up to 5MB) and provide a prompt to edit it using BytePlus Seededit API")
     
     # Image uploader
-    uploaded_file_v3 = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"], key="image_edit_uploader_v3")
+    uploaded_file_v3 = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"], key="image_edit_uploader_v3", help="While you can upload files up to 200MB, they will be compressed to under 5MB for API processing.")
 
     if uploaded_file_v3 is not None:
         # Display the uploaded image
@@ -578,7 +578,7 @@ with tab1:
 
 # Tab 2: Character Retention with Seededit v2.0
 with tab2:
-    st.write("Upload an image and provide a prompt to generate a new image while preserving character appearance")
+    st.write("Upload an image (up to 5MB) and provide a prompt to generate a new image while preserving character appearance")
     st.info("This feature preserves subject appearance (humans, animals, objects) and facial features from the input image.")
     
     # Main content area for Character Retention
