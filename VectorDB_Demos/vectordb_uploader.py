@@ -5,6 +5,10 @@ import pandas as pd
 import math
 import os
 import time
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 class VectorDBUploader:
     """Class for uploading data to VectorDB"""
@@ -89,10 +93,16 @@ class VectorDBUploader:
                 print(f"Failed to process batch {i+1} after {max_retries} retries. Continuing with next batch.")
 
 async def main():
-    # VikingDB credentials
-    vikingdb_service = VikingDBService("api-vikingdb.mlp.ap-mya.byteplus.com", "ap-southeast-1")
-    vikingdb_service.set_ak("<BytePlus API Key>")
-    vikingdb_service.set_sk("<BytePlus Secret Key>")
+    # Get VikingDB credentials from environment variables
+    vikingdb_endpoint = os.getenv("VIKINGDB_ENDPOINT", "api-vikingdb.mlp.ap-mya.byteplus.com")
+    vikingdb_region = os.getenv("VIKINGDB_REGION", "ap-southeast-1")
+    vikingdb_ak = os.getenv("VIKINGDB_AK")
+    vikingdb_sk = os.getenv("VIKINGDB_SK")
+    
+    # Initialize VikingDB service with environment variables
+    vikingdb_service = VikingDBService(vikingdb_endpoint, vikingdb_region)
+    vikingdb_service.set_ak(vikingdb_ak)
+    vikingdb_service.set_sk(vikingdb_sk)
     
     # Create instance of VectorDBUploader
     uploader = VectorDBUploader(

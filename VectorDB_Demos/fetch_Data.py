@@ -1,9 +1,21 @@
 from volcengine.viking_db import *
 import asyncio
+import os
+from dotenv import load_dotenv
 
-vikingdb_service = VikingDBService("api-vikingdb.mlp.ap-mya.byteplus.com", "ap-southeast-1")
-vikingdb_service.set_ak("<BytePlus API Key>")
-vikingdb_service.set_sk("<BytePlus Secret Key>")
+# Load environment variables from .env file
+load_dotenv()
+
+# Get API credentials from environment variables
+vikingdb_endpoint = os.getenv("VIKINGDB_ENDPOINT", "api-vikingdb.mlp.ap-mya.byteplus.com")
+vikingdb_region = os.getenv("VIKINGDB_REGION", "ap-southeast-1")
+vikingdb_ak = os.getenv("VIKINGDB_AK")
+vikingdb_sk = os.getenv("VIKINGDB_SK")
+
+# Initialize VikingDB service with environment variables
+vikingdb_service = VikingDBService(vikingdb_endpoint, vikingdb_region)
+vikingdb_service.set_ak(vikingdb_ak)
+vikingdb_service.set_sk(vikingdb_sk)
 
 
 # collection = vikingdb_service.get_collection("Ankur_Music_Collection")
@@ -28,4 +40,6 @@ async def get_collection():
     for item in res: 
         print(item) 
         print(item.fields)
-asyncio.run(get_collection())
+
+if __name__ == "__main__":
+    asyncio.run(get_collection())

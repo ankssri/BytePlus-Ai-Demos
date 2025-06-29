@@ -7,13 +7,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Initialize service with .env credentials
-#vikingdb_service = VikingDBService( os.getenv("VIKINGDB_ENDPOINT"),os.getenv("VIKINGDB_REGION"))
-#vikingdb_service.set_ak(os.getenv("VIKINGDB_ACCESS_KEY"))
-#vikingdb_service.set_sk(os.getenv("VIKINGDB_SECRET_KEY"))
+vikingdb_endpoint = os.getenv("VIKINGDB_ENDPOINT", "api-vikingdb.mlp.ap-mya.byteplus.com")
+vikingdb_region = os.getenv("VIKINGDB_REGION", "ap-southeast-1")
+vikingdb_ak = os.getenv("VIKINGDB_AK")
+vikingdb_sk = os.getenv("VIKINGDB_SK")
 
-vikingdb_service = VikingDBService("api-vikingdb.mlp.ap-mya.byteplus.com", "ap-southeast-1")
-vikingdb_service.set_ak("<BytePlus API Key>")
-vikingdb_service.set_sk("<BytePlus Secret Key>")
+vikingdb_service = VikingDBService(vikingdb_endpoint, vikingdb_region)
+vikingdb_service.set_ak(vikingdb_ak)
+vikingdb_service.set_sk(vikingdb_sk)
 
 def get_collection_sync():
     try:

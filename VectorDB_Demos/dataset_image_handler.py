@@ -8,6 +8,11 @@ import pandas as pd
 import tos
 import requests
 import traceback  # For detailed error tracking
+from dotenv import load_dotenv  # Add this import
+
+# Load environment variables from .env file
+load_dotenv()
+
 
 class DatasetImageHandler:
     """Class for handling dataset download and image upload to BytePlus Object Storage"""
@@ -247,12 +252,12 @@ class DatasetImageHandler:
                 shutil.rmtree(temp_dir)
 
 if __name__ == "__main__":
-    # BytePlus Object Storage credentials
-    TOS_ACCESS_KEY = "<BytePlus API Key>"
-    TOS_SECRET_KEY = "<BytePlus Secret Key>"
-    TOS_ENDPOINT = "tos-ap-southeast-1.bytepluses.com"
-    TOS_REGION = "ap-southeast-1"
-    TOS_BUCKET = "ankurdemo"
+    # BytePlus Object Storage credentials from .env file
+    TOS_ACCESS_KEY = os.getenv("TOS_ACCESS_KEY")
+    TOS_SECRET_KEY = os.getenv("TOS_SECRET_KEY")
+    TOS_ENDPOINT = os.getenv("TOS_ENDPOINT", "tos-ap-southeast-1.bytepluses.com")
+    TOS_REGION = os.getenv("TOS_REGION", "ap-southeast-1")
+    TOS_BUCKET = os.getenv("TOS_BUCKET", "ankurdemo")
     
     # Ensure the TOS SDK is installed
     try:

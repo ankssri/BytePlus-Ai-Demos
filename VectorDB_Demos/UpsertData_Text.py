@@ -3,10 +3,22 @@ import random
 import asyncio
 import pandas as pd
 import math
+import os
+from dotenv import load_dotenv
 
-vikingdb_service = VikingDBService("api-vikingdb.mlp.ap-mya.byteplus.com", "ap-southeast-1")
-vikingdb_service.set_ak("<BytePlus API Key")
-vikingdb_service.set_sk("<BytePlus Secret Key>")
+# Load environment variables from .env file
+load_dotenv()
+
+# Get API credentials from environment variables
+vikingdb_ak = os.getenv("VIKINGDB_AK")
+vikingdb_sk = os.getenv("VIKINGDB_SK")
+vikingdb_endpoint = os.getenv("VIKINGDB_ENDPOINT", "api-vikingdb.mlp.ap-mya.byteplus.com")
+vikingdb_region = os.getenv("VIKINGDB_REGION", "ap-southeast-1")
+
+# Initialize VikingDB service with environment variables
+vikingdb_service = VikingDBService(vikingdb_endpoint, vikingdb_region)
+vikingdb_service.set_ak(vikingdb_ak)
+vikingdb_service.set_sk(vikingdb_sk)
 
 def gen_random_vector(dim):    
     return [random.random() - 0.5 for _ in range(dim)] 
