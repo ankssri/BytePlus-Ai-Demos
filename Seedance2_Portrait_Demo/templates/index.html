@@ -67,23 +67,23 @@
       </div>
     </div>
 
-    <!-- STEP 1 — Upload image -->
+    <!-- STEP 1 — Portrait image URL -->
     <div class="step-block" id="step1-block">
-      <div class="step-label"><span class="step-badge">1</span> Upload Face Portrait</div>
-      <div
-        class="drop-zone"
-        id="drop-zone"
-        onclick="document.getElementById('face-input').click()"
-      >
-        <div class="drop-icon">📷</div>
-        <p>Drag &amp; drop or <strong>click to select</strong></p>
-        <p class="drop-hint">JPEG · PNG · WEBP · min 300×300 px · face centred</p>
-        <input type="file" id="face-input" accept="image/*" hidden />
-      </div>
-      <div id="image-preview-wrap" class="hidden">
-        <img id="image-preview" src="" alt="Portrait preview" />
-        <div id="image-meta" class="meta-chips"></div>
-        <button class="btn-ghost btn-sm" id="btn-clear-image">✕ Remove</button>
+      <div class="step-label"><span class="step-badge">1</span> Provide Portrait Image URL</div>
+      <p class="field-hint">Paste a publicly accessible URL to a face portrait image. The BytePlus Asset API requires a public HTTPS URL — it does not accept base64 or file uploads.</p>
+
+      <label class="field-label">Public Image URL</label>
+      <input
+        type="url"
+        id="image-url-input"
+        class="text-input"
+        placeholder="https://example.com/portrait.jpg"
+      />
+      <button class="btn-ghost btn-sm" id="btn-preview-image" style="margin-top:6px">Preview Image</button>
+
+      <div id="image-preview-wrap" class="hidden" style="margin-top:12px">
+        <img id="image-preview" src="" alt="Portrait preview" style="max-width:100%;border-radius:8px" />
+        <button class="btn-ghost btn-sm" id="btn-clear-image" style="margin-top:6px">✕ Clear</button>
       </div>
       <div id="image-error" class="alert alert-error hidden"></div>
     </div>
