@@ -102,7 +102,7 @@ async function loadAssetGroups() {
     if (d.error) throw new Error(JSON.stringify(d.error));
 
     const picker = $("group-picker");
-    picker.innerHTML = '<option value="">— create a new group below —</option>';
+    picker.innerHTML = '<option value="">— start a new verification below —</option>';
     (d.groups || []).forEach(g => {
       const opt = document.createElement("option");
       opt.value = g.id;
@@ -121,10 +121,8 @@ async function loadAssetGroups() {
 }
 
 $("group-picker").addEventListener("change", function () {
-  const selected = this.options[this.selectedIndex];
   if (this.value) {
     setGroupId(this.value);
-    $("group-name").value = selected.dataset.name || "";
   } else {
     state.groupId = null;
     $("group-result").classList.add("hidden");
@@ -133,42 +131,94 @@ $("group-picker").addEventListener("change", function () {
   }
 });
 
-// ── STEP 1: Create new group ─────────────────────────────────────
-$("btn-create-group").addEventListener("click", createAssetGroup);
+// ── STEP 1: Start real-person verification session ────────────────
+$("btn-start-verify").addEventListener("click", startVerifySession);
 
-async function createAssetGroup() {
-  const name = $("group-name").value.trim() || "My Real-Human Group";
-  const desc = $("group-desc").value.trim();
-  const btn  = $("btn-create-group");
-  btn.disabled = true;
-  btn.textContent = "Creating…";
+async function startVerifySession() {
+  const callbackUrl = $("callback-url").value.trim();
+  const btn         = $("btn-start-verify");
+  btn.disabled      = true;
+  btn.textContent   = "Starting…";
 
-  const reqBody = { Name: name, Description: desc, GroupType: "LivenessFace", ProjectName: "default" };
-  setInspector("req-create-group", {
+  const reqBody = {
+    CallbackURL:  callbackUrl || "http://localhost:5051/verify-callback",
+    ProjectName:  "default",
+  };
+  setInspector("req-verify-session", {
     method: "POST",
-    url: "https://ark.ap-southeast-1.byteplusapi.com/?Action=CreateAssetGroup&Version=2024-01-01",
+    url: "https://ark.ap-southeast-1.byteplusapi.com/?Action=CreateVisualValidateSession&Version=2024-01-01",
     auth: "HMAC-SHA256 AK/SK signature",
     body: reqBody,
   });
 
   try {
-    const r = await fetch("/api/create-asset-group", {
+    const r = await fetch("/api/start-verify-session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, description: desc }),
+      body: JSON.stringify({ callback_url: callbackUrl }),
     });
     const d = await r.json();
-    setInspector("res-create-group", d);
+    setInspector("res-verify-session", d);
 
     if (d.error) throw new Error(JSON.stringify(d.error));
 
-    setGroupId(d.id);
-    setWorkflowStep(2);
+    // Show H5 link and auto-fill token
+    const h5LinkInput = $("out-h5-link");
+    h5LinkInput.value = d.h5_link || "";
+    $("btn-open-h5").href = d.h5_link || "#";
+    $("byted-token-input").value = d.byted_token || "";
+    $("verify-session-result").classList.remove("hidden");
   } catch (err) {
-    alert(`Create group failed: ${err.message}`);
+    alert(`Start verification failed: ${err.message}`);
   } finally {
     btn.disabled = false;
-    btn.textContent = "Create New Group";
+    btn.textContent = "Start Verification Session";
+  }
+}
+
+// ── STEP 1: Get group ID from BytedToken ──────────────────────────
+$("btn-get-group").addEventListener("click", getGroupFromToken);
+
+async function getGroupFromToken() {
+  const bytedToken = $("byted-token-input").value.trim();
+  if (!bytedToken) {
+    alert("Please enter a BytedToken.");
+    return;
+  }
+
+  const btn    = $("btn-get-group");
+  const status = $("get-group-status");
+  btn.disabled = true;
+  btn.textContent = "Fetching…";
+  status.textContent = "";
+
+  setInspector("req-group-token", {
+    method: "POST",
+    url: "https://ark.ap-southeast-1.byteplusapi.com/?Action=GetVisualValidateResult&Version=2024-01-01",
+    auth: "HMAC-SHA256 AK/SK signature",
+    body: { BytedToken: bytedToken, ProjectName: "default" },
+  });
+
+  try {
+    const r = await fetch("/api/get-group-from-token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ byted_token: bytedToken }),
+    });
+    const d = await r.json();
+    setInspector("res-group-token", d);
+
+    if (d.error) throw new Error(JSON.stringify(d.error));
+
+    setGroupId(d.group_id);
+    setWorkflowStep(2);
+    status.textContent = "Group ID retrieved!";
+  } catch (err) {
+    status.textContent = `Error: ${err.message}`;
+    alert(`Get group failed: ${err.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Get Group ID from Token";
   }
 }
 

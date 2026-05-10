@@ -56,9 +56,8 @@
 <div class="notice-bar">
   <span class="notice-icon">⚠️</span>
   <span>
-    <strong>Before your first use:</strong> Sign the Authorization Letter in the
-    <a href="https://console.byteplus.com/ark/region:ark+ap-southeast-1/experience/vision?modelId=dreamina-seedance-2-0-260128&tab=GenVideo" target="_blank">BytePlus Console</a>
-    → My assets → Real-Human Portrait → Manage assets. This is a one-time step required before the CreateAssetGroup API will succeed.
+    <strong>Invited users only.</strong> You need Advanced Creation Rights and must have purchased the Real-Human Portrait Library quota.
+    Groups are created via real-person H5 liveness verification — <em>not</em> via a direct API call.
   </span>
 </div>
 
@@ -73,18 +72,19 @@
       <span class="panel-icon">📁</span>
       <div>
         <h2>Asset Registration</h2>
-        <p class="panel-sub">Create a LivenessFace group and upload Image / Video / Audio assets</p>
+        <p class="panel-sub">H5 liveness verification creates a LivenessFace group; then upload Image / Video / Audio assets</p>
       </div>
     </div>
 
     <!-- STEP 1 — Asset Group -->
     <div class="step-block" id="step1-block">
-      <div class="step-label"><span class="step-badge">1</span> Select or Create Asset Group</div>
+      <div class="step-label"><span class="step-badge">1</span> Get or Create Asset Group</div>
       <p class="field-hint">
-        Real-human portrait groups use <code>GroupType: "LivenessFace"</code>. Load an existing group or create a new one.
-        <strong>Note:</strong> the first group creation requires the Authorization Letter to be signed in the console.
+        Real-human portrait groups (<code>GroupType: "LivenessFace"</code>) are created automatically via real-person liveness verification.
+        Load an existing group, or start a new verification session to create one.
       </p>
 
+      <!-- Load existing groups -->
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
         <button class="btn-ghost btn-sm" id="btn-load-groups">Load Existing Groups</button>
         <span id="load-groups-status" style="font-size:12px;color:var(--text-muted)"></span>
@@ -93,19 +93,51 @@
       <div id="group-picker-wrap" class="hidden" style="margin-bottom:12px">
         <label class="field-label">Select an existing group</label>
         <select id="group-picker" class="text-input">
-          <option value="">— create a new group below —</option>
+          <option value="">— start a new verification below —</option>
         </select>
       </div>
 
-      <label class="field-label">New Group Name <span style="font-size:11px;color:var(--text-muted)">(ignored when selecting existing)</span></label>
-      <input type="text" id="group-name" class="text-input" value="My Real-Human Group" placeholder="e.g. Brand Ambassador" />
+      <!-- Divider -->
+      <div class="or-divider"><span>— or start a new real-person verification —</span></div>
 
-      <label class="field-label">Description</label>
-      <input type="text" id="group-desc" class="text-input" placeholder="Optional description" />
+      <!-- Verification session -->
+      <label class="field-label">Callback URL <span style="font-size:11px;color:var(--text-muted)">(where BytePlus redirects after verification)</span></label>
+      <input type="url" id="callback-url" class="text-input" placeholder="http://localhost:5051/verify-callback" />
+      <p class="field-hint" style="margin-top:4px">
+        Leave blank to use <code>http://localhost:5051/verify-callback</code>. After face verification the user is redirected here with the <code>bytedToken</code>.
+      </p>
 
-      <button class="btn-primary" id="btn-create-group">
-        Create New Group
+      <button class="btn-primary" id="btn-start-verify">
+        Start Verification Session
       </button>
+
+      <!-- H5 Link display (shown after session starts) -->
+      <div id="verify-session-result" class="hidden" style="margin-top:14px">
+        <div class="alert alert-info" style="margin-bottom:10px">
+          <strong>Verification session started!</strong> Open the H5 link below to complete real-person authentication (valid 120 seconds).
+        </div>
+        <label class="field-label">H5 Verification Link</label>
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
+          <input type="text" id="out-h5-link" class="text-input" readonly style="font-size:11px" />
+          <a id="btn-open-h5" href="#" target="_blank" class="btn-ghost btn-sm" style="white-space:nowrap">Open →</a>
+        </div>
+        <p class="field-hint">
+          1. Open the link above (on your mobile device or same browser)<br>
+          2. Complete the face verification on the page<br>
+          3. After the page redirects, come back and click <strong>Get Group ID</strong>
+        </p>
+      </div>
+
+      <!-- Token input + Get Group ID -->
+      <div style="margin-top:12px">
+        <label class="field-label">BytedToken <span style="font-size:11px;color:var(--text-muted)">(auto-filled after session, or paste from callback page)</span></label>
+        <input type="text" id="byted-token-input" class="text-input" placeholder="202603311449168C23BA26..." />
+
+        <button class="btn-primary" id="btn-get-group" style="margin-top:6px">
+          Get Group ID from Token
+        </button>
+        <span id="get-group-status" style="font-size:12px;color:var(--text-muted);margin-left:8px"></span>
+      </div>
 
       <div id="group-result" class="id-card hidden">
         <div class="id-row"><span class="id-label">Group ID</span><code id="out-group-id">—</code></div>
@@ -121,7 +153,7 @@
       </p>
 
       <div id="group-required-notice" class="alert alert-warn">
-        Complete Step 1 first — a group ID is required before registering assets.
+        Complete Step 1 first — select an existing group or complete H5 verification to obtain a Group ID.
       </div>
 
       <div id="asset-form" class="hidden">
@@ -177,20 +209,24 @@
       <summary>API Request Inspector</summary>
       <div class="inspector-tabs">
         <button class="itab active" data-tab="req-list-groups">ListAssetGroups</button>
-        <button class="itab" data-tab="req-create-group">CreateAssetGroup</button>
+        <button class="itab" data-tab="req-verify-session">CreateValidateSession</button>
+        <button class="itab" data-tab="req-group-token">GetValidateResult</button>
         <button class="itab" data-tab="req-asset">CreateAsset</button>
         <button class="itab" data-tab="req-list-assets">ListAssets</button>
         <button class="itab" data-tab="res-list-groups">List Groups ↩</button>
-        <button class="itab" data-tab="res-create-group">Group ↩</button>
+        <button class="itab" data-tab="res-verify-session">Session ↩</button>
+        <button class="itab" data-tab="res-group-token">Group ↩</button>
         <button class="itab" data-tab="res-asset">Asset ↩</button>
         <button class="itab" data-tab="res-list-assets">Assets ↩</button>
       </div>
       <pre class="code-block" id="req-list-groups">{}</pre>
-      <pre class="code-block hidden" id="req-create-group">{}</pre>
+      <pre class="code-block hidden" id="req-verify-session">{}</pre>
+      <pre class="code-block hidden" id="req-group-token">{}</pre>
       <pre class="code-block hidden" id="req-asset">{}</pre>
       <pre class="code-block hidden" id="req-list-assets">{}</pre>
       <pre class="code-block hidden" id="res-list-groups">{}</pre>
-      <pre class="code-block hidden" id="res-create-group">{}</pre>
+      <pre class="code-block hidden" id="res-verify-session">{}</pre>
+      <pre class="code-block hidden" id="res-group-token">{}</pre>
       <pre class="code-block hidden" id="res-asset">{}</pre>
       <pre class="code-block hidden" id="res-list-assets">{}</pre>
     </details>

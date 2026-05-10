@@ -555,6 +555,24 @@ code {
 .alert-error  { border-color: var(--error);   background: rgba(245,92,92,0.1);  color: var(--error); }
 .alert-warn   { border-color: var(--warning); background: rgba(245,166,35,0.08); color: #d4a017; }
 .alert-success { border-color: var(--success); background: rgba(62,207,142,0.1); color: var(--success); }
+.alert-info   { border-color: #3b82f6; background: rgba(59,130,246,0.08); color: #1d4ed8; }
+
+/* ── OR divider ─────────────────────────────────────────────────── */
+.or-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+.or-divider::before,
+.or-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
 
 /* ── Utilities ─────────────────────────────────────────────────── */
 .hidden { display: none !important; }

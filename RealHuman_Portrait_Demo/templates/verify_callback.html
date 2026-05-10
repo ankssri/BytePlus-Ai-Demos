@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verification Result — BytePlus Real-Human Portrait Demo</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; margin: 0; padding: 40px 20px; }
+    .card { max-width: 580px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 32px; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+    .success { border-top: 4px solid #22c55e; }
+    .failure { border-top: 4px solid #ef4444; }
+    h2 { margin-top: 0; font-size: 1.4rem; }
+    p  { color: #475569; line-height: 1.6; }
+    .token-box { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin: 16px 0; word-break: break-all; font-family: monospace; font-size: 13px; color: #1e293b; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+    .btn { display: inline-block; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; }
+    .btn-primary { background: #3b82f6; color: #fff; }
+    .btn-copy    { background: #f1f5f9; color: #1e293b; border: 1px solid #e2e8f0; }
+    .btn-copy:hover { background: #e2e8f0; }
+    .note { font-size: 12px; color: #94a3b8; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="card {% if success %}success{% else %}failure{% endif %}">
+    {% if success %}
+      <h2>✅ Verification Successful</h2>
+      <p>Real-person authentication completed. Copy the <strong>BytedToken</strong> below and paste it into the demo app to retrieve your Group ID.</p>
+      <p><strong>BytedToken</strong> <span style="color:#94a3b8;font-size:12px">(valid for 120 seconds)</span></p>
+      <div class="token-box" id="token-val">{{ byted_token }}</div>
+      <div class="actions">
+        <button class="btn btn-copy" onclick="
+          navigator.clipboard.writeText(document.getElementById('token-val').textContent).then(
+            () => { this.textContent = '✓ Copied!'; setTimeout(() => { this.textContent = 'Copy Token'; }, 2000); }
+          )">Copy Token</button>
+        <a class="btn btn-primary" href="/">Back to Demo App →</a>
+      </div>
+      <p class="note">After copying, go back to the demo app, paste the token, and click "Get Group ID from Token".</p>
+    {% else %}
+      <h2>❌ Verification Failed</h2>
+      <p>Real-person authentication did not succeed.</p>
+      <p>Result code: <code>{{ result_code }}</code>{% if result_code %} — please retry.{% endif %}</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="/">Back to Demo App →</a>
+      </div>
+      <p class="note">Return to the demo app and click "Start Verification Session" again to generate a new H5 link.</p>
+    {% endif %}
+  </div>
+</body>
+</html>

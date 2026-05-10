@@ -54,7 +54,11 @@ This demo uses `GroupType: "LivenessFace"` for real-human portrait groups.
 The virtual portrait demo uses `GroupType: "AIGC"`.  
 Both demos share the same API host and HMAC-SHA256 signing.
 
-**Additional prerequisite:** The authorization letter must be signed in the BytePlus Console before the first `CreateAssetGroup` call.
+**Critical difference:** Real-human portrait groups are NOT created via `CreateAssetGroup`.  
+Groups are created automatically during H5 real-person liveness verification:
+1. `CreateVisualValidateSession` → returns `BytedToken` + `H5Link`
+2. End user opens `H5Link` and completes face liveness check
+3. `GetVisualValidateResult` with `BytedToken` → returns `GroupId`
 
 ---
 
@@ -62,11 +66,14 @@ Both demos share the same API host and HMAC-SHA256 signing.
 
 | Action | Key request body keys | Response extraction |
 |--------|----------------------|---------------------|
+| `CreateVisualValidateSession` | `CallbackURL` (required), `ProjectName` | `Result.BytedToken`, `Result.H5Link` |
+| `GetVisualValidateResult` | `BytedToken` (required), `ProjectName` | `Result.GroupId` |
 | `ListAssetGroups` | `Filter: {GroupType: "LivenessFace"}` (required), `PageNumber`, `PageSize` | `Result.TotalCount`, `Result.Items[].Id/Name` |
-| `CreateAssetGroup` | `Name`, `Description`, `GroupType: "LivenessFace"`, `ProjectName: "default"` | `Result.Id` |
 | `CreateAsset` | `GroupId`, `URL`, `AssetType` (`Image`/`Video`/`Audio`), `Name`, `ProjectName` | `Result.Id` |
 | `GetAsset` | `Id`, `ProjectName` | `Result.Status`, `Result.URL` (valid 12 hrs) |
 | `ListAssets` | `Filter: {GroupIds: [...], GroupType: "LivenessFace"}`, `PageNumber`, `PageSize` | `Result.Items[].Id/Status/AssetType` |
+
+**Note:** `CreateAssetGroup` is NOT used in the real-human portrait workflow. Groups are only created via the H5 liveness verification flow above.
 
 **Asset status values are capitalised**: `Active`, `Processing`, `Failed`.
 

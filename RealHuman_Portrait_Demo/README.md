@@ -119,8 +119,10 @@ RealHuman_Portrait_Demo/
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/config` | Check which credentials are configured |
+| `POST` | `/api/start-verify-session` | Start H5 liveness verification session (HMAC-SHA256) |
+| `POST` | `/api/get-group-from-token` | Get GroupId from BytedToken after verification (HMAC-SHA256) |
+| `GET` | `/verify-callback` | Callback page — receives BytedToken from H5 redirect |
 | `GET` | `/api/list-asset-groups` | List existing LivenessFace groups (HMAC-SHA256) |
-| `POST` | `/api/create-asset-group` | Create a new LivenessFace group (HMAC-SHA256) |
 | `POST` | `/api/create-asset` | Register an asset URL (Image/Video/Audio) (HMAC-SHA256) |
 | `GET` | `/api/asset-status/<id>` | Poll asset verification status (HMAC-SHA256) |
 | `GET` | `/api/list-assets?group_id=<id>` | List assets in a group (HMAC-SHA256) |

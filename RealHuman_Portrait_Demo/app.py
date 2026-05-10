@@ -211,27 +211,68 @@ def list_asset_groups():
     return jsonify({"groups": groups, "total": result.get("TotalCount", len(groups))})
 
 
-@app.route("/api/create-asset-group", methods=["POST"])
-def create_asset_group():
+@app.route("/api/start-verify-session", methods=["POST"])
+def start_verify_session():
     """
-    POST /?Action=CreateAssetGroup&Version=2024-01-01
-    GroupType must be "LivenessFace" for real-human portrait groups.
-    Authorization letter must be signed in the console before the first call.
+    POST /?Action=CreateVisualValidateSession&Version=2024-01-01
+    Launches the H5 real-person authentication page. The end user opens H5Link,
+    completes liveness verification, and is redirected to CallbackURL.
+    The BytedToken is then used with GetVisualValidateResult to obtain the GroupId.
     """
-    body_in = request.json or {}
+    body_in      = request.json or {}
+    callback_url = body_in.get("callback_url", "").strip()
+    if not callback_url:
+        port         = int(os.getenv("PORT", 5051))
+        callback_url = f"http://localhost:{port}/verify-callback"
+
     body = {
-        "Name":        body_in.get("name", "Real-Human Portrait Group"),
-        "Description": body_in.get("description", ""),
-        "GroupType":   "LivenessFace",
+        "CallbackURL": callback_url,
         "ProjectName": "default",
     }
-    data, status_code = _call_asset_api("CreateAssetGroup", body)
+    data, status_code = _call_asset_api("CreateVisualValidateSession", body)
 
     if status_code not in (200, 201) or "error" in data:
         return jsonify({"error": data, "http_status": status_code}), max(status_code, 400)
 
-    group_id = (data.get("Result") or {}).get("Id")
-    return jsonify({"id": group_id, "raw": data})
+    result      = data.get("Result") or {}
+    byted_token = result.get("BytedToken") or data.get("BytedToken")
+    h5_link     = result.get("H5Link")     or data.get("H5Link")
+    return jsonify({"byted_token": byted_token, "h5_link": h5_link, "raw": data})
+
+
+@app.route("/api/get-group-from-token", methods=["POST"])
+def get_group_from_token():
+    """
+    POST /?Action=GetVisualValidateResult&Version=2024-01-01
+    After the end user completes H5 verification, call this with the BytedToken
+    to retrieve the GroupId that was automatically created for that real person.
+    """
+    body_in     = request.json or {}
+    byted_token = body_in.get("byted_token", "").strip()
+    if not byted_token:
+        return jsonify({"error": "byted_token is required"}), 400
+
+    body = {"BytedToken": byted_token, "ProjectName": "default"}
+    data, status_code = _call_asset_api("GetVisualValidateResult", body)
+
+    if status_code not in (200, 201) or "error" in data:
+        return jsonify({"error": data, "http_status": status_code}), max(status_code, 400)
+
+    result   = data.get("Result") or {}
+    group_id = result.get("GroupId") or data.get("GroupId")
+    return jsonify({"group_id": group_id, "raw": data})
+
+
+@app.route("/verify-callback")
+def verify_callback():
+    """Receives the H5 verification redirect and shows BytedToken to the user."""
+    byted_token = request.args.get("bytedToken", "")
+    result_code = request.args.get("resultCode", "")
+    success     = (result_code == "10000")
+    return render_template("verify_callback.html",
+                           byted_token=byted_token,
+                           result_code=result_code,
+                           success=success)
 
 
 # ── Assets ────────────────────────────────────────────────────────────────────
