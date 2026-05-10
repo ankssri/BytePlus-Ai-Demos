@@ -305,11 +305,24 @@ async function generateVideo() {
     body.asset_id = state.assetId;
   }
 
+  // Build the BytePlus-format payload preview for the inspector
+  const previewContent = [{ type: "text", text: prompt }];
+  if (state.assetId && state.assetStatus === "Active") {
+    previewContent.push({ type: "image_url", role: "reference_image", image_url: { url: `asset://${state.assetId}` } });
+  }
+  const previewPayload = { model: modelId, content: previewContent, watermark: false };
+  const ratioM = prompt.match(/--ratio\s+(\S+)/);
+  const durM   = prompt.match(/--duration\s+(\d+)/);
+  const resM   = prompt.match(/--resolution\s+(\S+)/);
+  if (ratioM) previewPayload.ratio      = ratioM[1];
+  if (durM)   previewPayload.duration   = parseInt(durM[1]);
+  if (resM)   previewPayload.resolution = resM[1];
+
   setInspector("req-video", {
     method: "POST",
     url: "https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks",
     auth: "Bearer API Key",
-    body,
+    body: previewPayload,
   });
 
   tlSet("tl-submit", "active", "Submitting video task…");
@@ -322,6 +335,15 @@ async function generateVideo() {
       body: JSON.stringify(body),
     });
     taskResp = await r.json();
+    // Update inspector with the actual payload the backend sent to BytePlus
+    if (taskResp._byteplus_request) {
+      setInspector("req-video", {
+        method: "POST",
+        url: "https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks",
+        auth: "Bearer API Key",
+        body: taskResp._byteplus_request,
+      });
+    }
     setInspector("res-video-create", taskResp);
 
     if (taskResp.error) throw new Error(JSON.stringify(taskResp.error));
