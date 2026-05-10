@@ -120,6 +120,62 @@ $("btn-clear-image").addEventListener("click", () => {
   setWorkflowStep(1);
 });
 
+// ── Load existing asset groups ───────────────────────────────────
+$("btn-load-groups").addEventListener("click", loadAssetGroups);
+
+async function loadAssetGroups() {
+  const statusEl = $("load-groups-status");
+  const btn      = $("btn-load-groups");
+  btn.disabled   = true;
+  statusEl.textContent = "Loading…";
+
+  setInspector("req-list-groups", {
+    method: "GET",
+    url: "https://ark.ap-southeast-1.byteplusapi.com/?Action=ListAssetGroups&Version=2024-01-01",
+    auth: "HMAC-SHA256 AK/SK signature",
+    body: { ProjectName: "default", GroupType: "AIGC", PageNum: 1, PageSize: 50 },
+  });
+
+  try {
+    const r = await fetch("/api/list-asset-groups");
+    const d = await r.json();
+    setInspector("res-list-groups", d);
+
+    if (d.error) throw new Error(JSON.stringify(d.error));
+
+    const picker = $("group-picker");
+    picker.innerHTML = '<option value="">— create a new group below —</option>';
+    (d.groups || []).forEach(g => {
+      const opt = document.createElement("option");
+      opt.value       = g.id;
+      opt.textContent = `${g.name}  (${g.id})`;
+      opt.dataset.name = g.name;
+      picker.appendChild(opt);
+    });
+
+    $("group-picker-wrap").classList.remove("hidden");
+    statusEl.textContent = `${d.total ?? d.groups.length} group(s) found`;
+  } catch (err) {
+    statusEl.textContent = `Error: ${err.message}`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+$("group-picker").addEventListener("change", function () {
+  const selected = this.options[this.selectedIndex];
+  if (this.value) {
+    state.groupId = this.value;
+    $("group-name").value = selected.dataset.name || "";
+    $("out-group-id").textContent = this.value;
+    $("asset-result").classList.remove("hidden");
+    tlSet("tl-group", "done", `Using existing group: ${this.value}`);
+  } else {
+    state.groupId = null;
+    $("out-group-id").textContent = "—";
+  }
+});
+
 // ── Register asset ───────────────────────────────────────────────
 btnRegister.addEventListener("click", registerAsset);
 
@@ -134,37 +190,40 @@ async function registerAsset() {
   assetResult.classList.remove("hidden");
   setWorkflowStep(2);
 
-  // ── Step 1: Create asset group ──────────────────────────────
-  const groupName = $("group-name").value.trim() || "My Portrait Group";
-  const groupReq  = { name: groupName, description: "Trusted face assets for Seedance 2.0 video generation" };
+  // ── Step 1: Create asset group (skip if an existing group was selected) ──
+  if (state.groupId) {
+    tlSet("tl-group", "done", `Reusing group: ${state.groupId}`);
+  } else {
+    const groupName = $("group-name").value.trim() || "My Portrait Group";
+    const groupReq  = { name: groupName, description: "Trusted face assets for Seedance 2.0 video generation" };
 
-  tlSet("tl-group", "active", "Creating asset group…");
-  setInspector("req-group", {
-    method: "POST",
-    url: "https://ark.ap-southeast-1.byteplusapi.com/?Action=CreateAssetGroup&Version=2024-01-01",
-    auth: "HMAC-SHA256 AK/SK signature",
-    body: { Name: groupName, Description: groupReq.description, GroupType: "AIGC", ProjectName: "default" },
-  });
-
-  let groupResp;
-  try {
-    const r = await fetch("/api/create-asset-group", {
+    tlSet("tl-group", "active", "Creating asset group…");
+    setInspector("req-group", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(groupReq),
+      url: "https://ark.ap-southeast-1.byteplusapi.com/?Action=CreateAssetGroup&Version=2024-01-01",
+      auth: "HMAC-SHA256 AK/SK signature",
+      body: { Name: groupName, Description: groupReq.description, GroupType: "AIGC", ProjectName: "default" },
     });
-    groupResp = await r.json();
-    setInspector("res-group", groupResp);
 
-    if (groupResp.error) throw new Error(JSON.stringify(groupResp.error));
+    try {
+      const r = await fetch("/api/create-asset-group", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(groupReq),
+      });
+      const groupResp = await r.json();
+      setInspector("res-group", groupResp);
 
-    state.groupId = groupResp.id;
-    $("out-group-id").textContent = state.groupId;
-    tlSet("tl-group", "done", `Group ID: ${state.groupId}`);
-  } catch (err) {
-    tlSet("tl-group", "error", `Failed: ${err.message}`);
-    resetRegisterButton();
-    return;
+      if (groupResp.error) throw new Error(JSON.stringify(groupResp.error));
+
+      state.groupId = groupResp.id;
+      $("out-group-id").textContent = state.groupId;
+      tlSet("tl-group", "done", `Group ID: ${state.groupId}`);
+    } catch (err) {
+      tlSet("tl-group", "error", `Failed: ${err.message}`);
+      resetRegisterButton();
+      return;
+    }
   }
 
   // ── Step 2: Create asset with public URL ────────────────────
