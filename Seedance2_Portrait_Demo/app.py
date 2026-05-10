@@ -326,7 +326,7 @@ def create_video_task():
             json=payload,
             timeout=30,
         )
-        print(f"[CreateVideoTask] status={resp.status_code}")
+        print(f"[CreateVideoTask] status={resp.status_code} url={resp.url}")
         print(f"[CreateVideoTask] response={resp.text[:400]}")
         data = _safe_json(resp)
         if resp.status_code not in (200, 201):
@@ -352,9 +352,19 @@ def video_task_status(task_id):
             timeout=15,
         )
         data = _safe_json(resp)
-        video_url = (data.get("content") or {}).get("video_url") or data.get("video_url")
+
+        # Normalise video URL from multiple possible response shapes
+        video_url = (
+            (data.get("content") or {}).get("video_url")
+            or data.get("video_url")
+            or ((data.get("result") or {}).get("video_url"))
+            or ((data.get("data") or {}).get("video_url"))
+            or ((data.get("output") or {}).get("video_url"))
+            or ((data.get("video") or {}).get("url"))
+        )
         if video_url:
             data["_video_url"] = video_url
+
         return jsonify(data), resp.status_code
     except Exception as e:
         return jsonify({"error": str(e)}), 500
