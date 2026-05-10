@@ -16,6 +16,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 from datetime import datetime, timezone
 from io import BytesIO
 
@@ -160,6 +161,21 @@ def _validate_image_file(file_storage):
         return False, str(e), {}
 
 
+def _parse_prompt_flags(prompt: str) -> tuple:
+    """Extract --ratio, --duration, --resolution flags; return (clean_prompt, extras_dict)."""
+    extras = {}
+    for pattern, key, cast in [
+        (r'--ratio\s+(\S+)',      'ratio',      str),
+        (r'--duration\s+(\d+)',   'duration',   int),
+        (r'--resolution\s+(\S+)', 'resolution', str),
+    ]:
+        m = re.search(pattern, prompt)
+        if m:
+            extras[key] = cast(m.group(1))
+            prompt = (prompt[:m.start()] + prompt[m.end():]).strip()
+    return prompt.strip(), extras
+
+
 def _image_to_base64(file_storage) -> str:
     image = Image.open(file_storage.stream)
     if image.mode == "RGBA":
@@ -302,22 +318,30 @@ def create_video_task():
     if not prompt:
         return jsonify({"error": "prompt is required"}), 400
 
-    content = [{"type": "text", "text": prompt}]
+    # Extract --ratio / --duration / --resolution inline flags into top-level fields
+    clean_prompt, extras = _parse_prompt_flags(prompt)
+
+    content = [{"type": "text", "text": clean_prompt}]
 
     if asset_id:
         content.append({
             "type": "image_url",
-            "image_url": {"url": f"asset://{asset_id}"},
             "role": "reference_image",
+            "image_url": {"url": f"asset://{asset_id}"},
         })
     elif img_url:
         content.append({
             "type": "image_url",
-            "image_url": {"url": img_url},
             "role": "reference_image",
+            "image_url": {"url": img_url},
         })
 
-    payload = {"model": model_id, "content": content}
+    payload = {
+        "model":     model_id,
+        "content":   content,
+        "watermark": False,
+        **extras,           # ratio, duration, resolution (if present)
+    }
 
     try:
         resp = requests.post(
@@ -331,6 +355,8 @@ def create_video_task():
         data = _safe_json(resp)
         if resp.status_code not in (200, 201):
             return jsonify({"error": data, "http_status": resp.status_code}), resp.status_code
+        # Include the actual BytePlus payload so the frontend inspector can display it
+        data["_byteplus_request"] = payload
         return jsonify(data)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
