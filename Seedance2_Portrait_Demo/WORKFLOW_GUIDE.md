@@ -40,6 +40,8 @@ The workflow uses **two separate API systems** with different hosts and authenti
 
 The asset registration (Steps 1–2b) runs in the background while the user writes their prompt.
 
+> **Tip — reuse an existing group**: If you already have an asset group, you can skip Step 1 by calling `ListAssetGroups` (see below) to retrieve its ID, then go straight to Step 2.
+
 ---
 
 ## Prerequisites
@@ -91,6 +93,72 @@ Host: ark.ap-southeast-1.byteplusapi.com
 ```
 
 See `app.py → _asset_signed_headers()` for the complete Python signing implementation.
+
+---
+
+## Step 0 (Optional) — List Existing Asset Groups
+
+If you already have asset groups, retrieve them to find the ID you want to reuse.
+
+### Request
+
+```http
+POST https://ark.ap-southeast-1.byteplusapi.com/?Action=ListAssetGroups&Version=2024-01-01
+Authorization: HMAC-SHA256 Credential=<AK>/...
+X-Date: <timestamp>
+X-Content-Sha256: <body-sha256>
+Host: ark.ap-southeast-1.byteplusapi.com
+Content-Type: application/json
+```
+
+```json
+{
+  "Filter": {
+    "GroupType": "AIGC"
+  },
+  "PageNumber": 1,
+  "PageSize": 50,
+  "SortBy": "CreateTime",
+  "SortOrder": "Desc",
+  "ProjectName": "default"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `Filter` | object | Yes | Filter conditions — must include at least `GroupType` |
+| `Filter.GroupType` | string | Yes | `"AIGC"` for digital characters, `"LivenessFace"` for real-person portraits |
+| `Filter.Name` | string | No | Filter by group name |
+| `PageNumber` | integer | No | Page number, starting from 1 |
+| `PageSize` | integer | No | Results per page, max 100 |
+| `SortBy` | string | No | `"CreateTime"` (default) or `"UpdateTime"` |
+| `SortOrder` | string | No | `"Desc"` (default) or `"Asc"` |
+
+### Response
+
+```json
+{
+  "ResponseMetadata": { ... },
+  "Result": {
+    "TotalCount": 2,
+    "Items": [
+      {
+        "Id": "group-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "Name": "My Portrait Group",
+        "Description": "Trusted face assets",
+        "GroupType": "AIGC",
+        "ProjectName": "default",
+        "CreateTime": "2026-05-10T00:00:00Z",
+        "UpdateTime": "2026-05-10T00:00:00Z"
+      }
+    ],
+    "PageNumber": 1,
+    "PageSize": 50
+  }
+}
+```
+
+**Extract**: `response["Result"]["Items"][n]["Id"]` — use this as your `group_id` and skip Step 1.
 
 ---
 
@@ -264,16 +332,20 @@ Reference your verified asset using the `asset://` URI scheme:
   "content": [
     {
       "type": "text",
-      "text": "Alice walks confidently through a sunlit Tokyo street, cinematic tracking shot --ratio 16:9 --resolution 1080p --duration 5"
+      "text": "Alice walks confidently through a sunlit Tokyo street, cinematic tracking shot, photorealistic"
     },
     {
       "type": "image_url",
+      "role": "reference_image",
       "image_url": {
         "url": "asset://asset-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-      },
-      "role": "reference_image"
+      }
     }
-  ]
+  ],
+  "ratio": "16:9",
+  "resolution": "1080p",
+  "duration": 5,
+  "watermark": false
 }
 ```
 
@@ -285,51 +357,51 @@ Reference your verified asset using the `asset://` URI scheme:
   "content": [
     {
       "type": "text",
-      "text": "A person walks through a beautiful garden, photorealistic --ratio 16:9 --resolution 720p --duration 5"
+      "text": "A person walks through a beautiful garden, photorealistic"
     },
     {
       "type": "image_url",
+      "role": "reference_image",
       "image_url": {
         "url": "https://example.com/face.jpg"
-      },
-      "role": "reference_image"
+      }
     }
-  ]
+  ],
+  "ratio": "16:9",
+  "resolution": "720p",
+  "duration": 5,
+  "watermark": false
 }
 ```
 
-| Field | Description |
-|-------|-------------|
-| `model` | Seedance 2.0 model ID or custom endpoint ID (`ep-xxxx`) |
-| `content[].type` | `"text"` or `"image_url"` |
-| `content[].text` | The video generation prompt (text type) |
-| `content[].image_url.url` | Public image URL or `asset://{asset_id}` |
-| `content[].role` | `"reference_image"` for face portrait |
+| Field | Type | Description |
+|-------|------|-------------|
+| `model` | string | Seedance 2.0 model ID or custom endpoint ID (`ep-xxxx`) |
+| `content[].type` | string | `"text"` or `"image_url"` |
+| `content[].text` | string | The video generation prompt (text type only) |
+| `content[].role` | string | `"reference_image"` — sibling of `type`, not nested inside `image_url` |
+| `content[].image_url.url` | string | Public image URL or `asset://{asset_id}` |
+| `ratio` | string | Aspect ratio: `"16:9"`, `"9:16"`, `"1:1"`, `"4:3"`, `"3:4"` |
+| `resolution` | string | Output resolution: `"720p"` or `"1080p"` |
+| `duration` | integer | Video duration in seconds: `5` or `10` |
+| `watermark` | boolean | Set to `false` to disable watermark |
 
-> **Multi-image prompts**: Reference images positionally — "Image 1", "Image 2" etc. Do NOT use asset IDs directly in the prompt text.
+> **Multi-image prompts**: Reference images positionally in the prompt text — "Image 1", "Image 2" etc. Do NOT use asset IDs directly in the prompt text.
 
-#### Prompt Inline Parameters
-
-Append these flags at the end of your text prompt:
-
-| Flag | Example | Description |
-|------|---------|-------------|
-| `--ratio` | `--ratio 16:9` | Aspect ratio (`16:9`, `9:16`, `1:1`, `4:3`, `3:4`) |
-| `--resolution` | `--resolution 1080p` | Output resolution (`720p`, `1080p`) |
-| `--duration` | `--duration 5` | Video duration in seconds (`5` or `10`) |
+> **Web app convenience**: The web app accepts `--ratio 16:9 --resolution 1080p --duration 5` appended inline to the prompt text. The backend parses these flags and converts them to the correct top-level API fields before sending to BytePlus.
 
 ### Response
 
 ```json
 {
-  "id": "task-xxxxxxxxxxxxxxxx",
+  "id": "cgt-xxxxxxxxxxxxxxxx",
   "status": "queued",
   "model": "dreamina-seedance-2-0-260128",
   "created_at": 1746786300
 }
 ```
 
-**Extract**: `response["id"]` — this is your `task_id`.
+**Extract**: `response["id"]` — this is your `task_id`. Note the `cgt-` prefix format.
 
 ---
 
@@ -340,7 +412,7 @@ Poll every 5–10 seconds until `status` is `"succeeded"` or `"failed"`.
 ### Request
 
 ```http
-GET https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks/{task_id}
+GET https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks/cgt-xxxxxxxxxxxxxxxx
 Authorization: Bearer <ARK_API_KEY>
 ```
 
@@ -348,7 +420,7 @@ Authorization: Bearer <ARK_API_KEY>
 
 ```json
 {
-  "id": "task-xxxxxxxxxxxxxxxx",
+  "id": "cgt-xxxxxxxxxxxxxxxx",
   "status": "running",
   "model": "dreamina-seedance-2-0-260128",
   "created_at": 1746786300,
@@ -360,7 +432,7 @@ Authorization: Bearer <ARK_API_KEY>
 
 ```json
 {
-  "id": "task-xxxxxxxxxxxxxxxx",
+  "id": "cgt-xxxxxxxxxxxxxxxx",
   "status": "succeeded",
   "model": "dreamina-seedance-2-0-260128",
   "created_at": 1746786300,
@@ -377,7 +449,7 @@ Authorization: Bearer <ARK_API_KEY>
 
 ```json
 {
-  "id": "task-xxxxxxxxxxxxxxxx",
+  "id": "cgt-xxxxxxxxxxxxxxxx",
   "status": "failed",
   "error": {
     "code": "InvalidInput",
@@ -521,14 +593,20 @@ def wait_for_asset(asset_id: str, timeout: int = 120) -> bool:
 
 
 # ── Step 3: Create Video Task ────────────────────────────────────
-def create_video_task(prompt: str, asset_id: str) -> str:
+def create_video_task(prompt: str, asset_id: str,
+                      ratio: str = "16:9", resolution: str = "1080p", duration: int = 5) -> str:
     headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
     payload = {
-        "model": MODEL_ID,
+        "model":      MODEL_ID,
         "content": [
             {"type": "text", "text": prompt},
-            {"type": "image_url", "image_url": {"url": f"asset://{asset_id}"}, "role": "reference_image"},
+            {"type": "image_url", "role": "reference_image",
+             "image_url": {"url": f"asset://{asset_id}"}},
         ],
+        "ratio":      ratio,
+        "resolution": resolution,
+        "duration":   duration,
+        "watermark":  False,
     }
     resp    = requests.post(f"{VIDEO_BASE}/contents/generations/tasks",
                             headers=headers, json=payload, timeout=30)
@@ -560,10 +638,7 @@ def wait_for_video(task_id: str, timeout: int = 600) -> str:
 # ── Main ─────────────────────────────────────────────────────────
 if __name__ == "__main__":
     face_url = "https://example.com/alice_portrait.jpg"  # Must be publicly accessible
-    prompt   = (
-        "Alice walks confidently through a sunlit Tokyo street, "
-        "cinematic tracking shot --ratio 16:9 --resolution 1080p --duration 5"
-    )
+    prompt   = "Alice walks confidently through a sunlit Tokyo street, cinematic tracking shot, photorealistic"
 
     group_id = create_asset_group("My Portraits")
     asset_id = create_asset(group_id, "Alice", face_url)
@@ -572,7 +647,7 @@ if __name__ == "__main__":
     if not wait_for_asset(asset_id):
         raise RuntimeError("Asset verification failed")
 
-    task_id   = create_video_task(prompt, asset_id)
+    task_id   = create_video_task(prompt, asset_id, ratio="16:9", resolution="1080p", duration=5)
     print("Waiting for video generation…")
     video_url = wait_for_video(task_id)
     print(f"\nVideo ready: {video_url}")
@@ -595,6 +670,7 @@ if __name__ == "__main__":
 ## References
 
 - [Private Virtual Portrait Library Overview](https://docs.byteplus.com/en/docs/ModelArk/2333565)
+- [ListAssetGroups API](https://docs.byteplus.com/en/docs/ModelArk/2318269)
 - [CreateAssetGroup API](https://docs.byteplus.com/en/docs/ModelArk/2318270)
 - [CreateAsset API](https://docs.byteplus.com/en/docs/ModelArk/2318271)
 - [GetAsset API](https://docs.byteplus.com/en/docs/ModelArk/2318273)
