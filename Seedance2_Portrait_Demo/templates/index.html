@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seedance 2.0 — Portrait Video Demo | BytePlus ModelArk</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+
+<!-- ───────────── HEADER ───────────── -->
+<header class="site-header">
+  <div class="header-inner">
+    <div class="brand">
+      <div class="brand-logo">⚡</div>
+      <div>
+        <h1>Seedance 2.0</h1>
+        <p>Portrait Video Generation · BytePlus ModelArk</p>
+      </div>
+    </div>
+    <div id="api-status" class="api-badge unchecked">Checking API…</div>
+  </div>
+</header>
+
+<!-- ───────────── WORKFLOW DIAGRAM ───────────── -->
+<section class="workflow-banner">
+  <div class="workflow-steps">
+    <div class="wf-step active" id="wf1">
+      <span class="wf-num">1</span>
+      <span class="wf-label">Upload Portrait</span>
+    </div>
+    <div class="wf-arrow">→</div>
+    <div class="wf-step" id="wf2">
+      <span class="wf-num">2</span>
+      <span class="wf-label">Register Asset</span>
+    </div>
+    <div class="wf-arrow">→</div>
+    <div class="wf-step" id="wf3">
+      <span class="wf-num">3</span>
+      <span class="wf-label">Write Prompt</span>
+    </div>
+    <div class="wf-arrow">→</div>
+    <div class="wf-step" id="wf4">
+      <span class="wf-num">4</span>
+      <span class="wf-label">Generate Video</span>
+    </div>
+    <div class="wf-arrow">→</div>
+    <div class="wf-step" id="wf5">
+      <span class="wf-num">5</span>
+      <span class="wf-label">Watch Result</span>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── MAIN CONTENT ───────────── -->
+<main class="page-grid">
+
+  <!-- ══════════════════════════════════════
+       LEFT COLUMN — Asset Registration Panel
+  ══════════════════════════════════════ -->
+  <section class="panel" id="panel-asset">
+    <div class="panel-header">
+      <span class="panel-icon">🖼️</span>
+      <div>
+        <h2>Asset Registration</h2>
+        <p class="panel-sub">Steps 1 & 2 run in the background while you write your prompt</p>
+      </div>
+    </div>
+
+    <!-- STEP 1 — Upload image -->
+    <div class="step-block" id="step1-block">
+      <div class="step-label"><span class="step-badge">1</span> Upload Face Portrait</div>
+      <div
+        class="drop-zone"
+        id="drop-zone"
+        onclick="document.getElementById('face-input').click()"
+      >
+        <div class="drop-icon">📷</div>
+        <p>Drag &amp; drop or <strong>click to select</strong></p>
+        <p class="drop-hint">JPEG · PNG · WEBP · min 300×300 px · face centred</p>
+        <input type="file" id="face-input" accept="image/*" hidden />
+      </div>
+      <div id="image-preview-wrap" class="hidden">
+        <img id="image-preview" src="" alt="Portrait preview" />
+        <div id="image-meta" class="meta-chips"></div>
+        <button class="btn-ghost btn-sm" id="btn-clear-image">✕ Remove</button>
+      </div>
+      <div id="image-error" class="alert alert-error hidden"></div>
+    </div>
+
+    <!-- STEP 2 — Asset group + register -->
+    <div class="step-block" id="step2-block">
+      <div class="step-label"><span class="step-badge">2</span> Register in Asset Library</div>
+
+      <label class="field-label">Asset Group Name</label>
+      <input
+        type="text"
+        id="group-name"
+        class="text-input"
+        value="My Portrait Group"
+        placeholder="e.g. Marketing Portraits"
+      />
+
+      <label class="field-label">Asset Name</label>
+      <input
+        type="text"
+        id="asset-name"
+        class="text-input"
+        value="Portrait Asset"
+        placeholder="e.g. Alice"
+      />
+
+      <button class="btn-primary" id="btn-register" disabled>
+        Register Portrait Asset
+      </button>
+
+      <!-- Progress timeline -->
+      <div id="asset-timeline" class="timeline hidden">
+        <div class="tl-item" id="tl-group">
+          <div class="tl-dot"></div>
+          <div class="tl-content">
+            <div class="tl-title">Create Asset Group</div>
+            <div class="tl-detail" id="tl-group-detail">Waiting…</div>
+          </div>
+        </div>
+        <div class="tl-item" id="tl-upload">
+          <div class="tl-dot"></div>
+          <div class="tl-content">
+            <div class="tl-title">Upload Asset</div>
+            <div class="tl-detail" id="tl-upload-detail">Waiting…</div>
+          </div>
+        </div>
+        <div class="tl-item" id="tl-verify">
+          <div class="tl-dot"></div>
+          <div class="tl-content">
+            <div class="tl-title">Verify Asset</div>
+            <div class="tl-detail" id="tl-verify-detail">Waiting…</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="asset-result" class="id-card hidden">
+        <div class="id-row"><span class="id-label">Group ID</span><code id="out-group-id">—</code></div>
+        <div class="id-row"><span class="id-label">Asset ID</span><code id="out-asset-id">—</code></div>
+        <div class="id-row"><span class="id-label">Status</span><span id="out-asset-status" class="badge">—</span></div>
+      </div>
+    </div>
+
+    <!-- API request inspector -->
+    <details class="inspector" id="asset-inspector">
+      <summary>API Request Inspector</summary>
+      <div class="inspector-tabs">
+        <button class="itab active" data-tab="req-group">CreateAssetGroup</button>
+        <button class="itab" data-tab="req-asset">CreateAsset</button>
+        <button class="itab" data-tab="res-group">Group Response</button>
+        <button class="itab" data-tab="res-asset">Asset Response</button>
+      </div>
+      <pre class="code-block" id="req-group">{}</pre>
+      <pre class="code-block hidden" id="req-asset">{}</pre>
+      <pre class="code-block hidden" id="res-group">{}</pre>
+      <pre class="code-block hidden" id="res-asset">{}</pre>
+    </details>
+  </section>
+
+  <!-- ══════════════════════════════════════
+       RIGHT COLUMN — Video Generation Panel
+  ══════════════════════════════════════ -->
+  <section class="panel" id="panel-video">
+    <div class="panel-header">
+      <span class="panel-icon">🎬</span>
+      <div>
+        <h2>Video Generation</h2>
+        <p class="panel-sub">Steps 3, 4 &amp; 5 — prompt, generate, watch</p>
+      </div>
+    </div>
+
+    <!-- STEP 3 — Prompt -->
+    <div class="step-block">
+      <div class="step-label"><span class="step-badge">3</span> Write Your Prompt</div>
+
+      <label class="field-label">Model ID / Endpoint ID</label>
+      <input
+        type="text"
+        id="model-id"
+        class="text-input"
+        value="{{ model_id }}"
+        placeholder="dreamina-seedance-2-0-260128 or ep-xxxx"
+      />
+
+      <label class="field-label">Video Prompt</label>
+      <textarea
+        id="video-prompt"
+        class="text-area"
+        rows="5"
+        placeholder="Describe the video scene. Include style, action and camera movement.&#10;&#10;Append flags at the end:&#10;--ratio 16:9 --resolution 1080p --duration 5"
+      ></textarea>
+
+      <div class="sample-prompts">
+        <p class="field-label">Sample prompts</p>
+        <button class="chip" data-prompt="A confident person walks through a sunlit Tokyo street, cinematic tracking shot, photorealistic --ratio 16:9 --resolution 1080p --duration 5">Tokyo Street Walk</button>
+        <button class="chip" data-prompt="Close-up portrait, subject gently smiles and turns their head, soft studio lighting, 4K cinematic --ratio 9:16 --resolution 1080p --duration 5">Smile &amp; Turn</button>
+        <button class="chip" data-prompt="Person standing on a rooftop at golden hour, light breeze, hair flowing, wide cinematic shot --ratio 16:9 --resolution 1080p --duration 5">Golden Hour Rooftop</button>
+      </div>
+
+      <div class="asset-notice" id="asset-notice">
+        <span id="asset-notice-icon">⏳</span>
+        <span id="asset-notice-text">No asset registered yet. You can still generate without a portrait asset.</span>
+      </div>
+    </div>
+
+    <!-- STEP 4 — Generate -->
+    <div class="step-block">
+      <div class="step-label"><span class="step-badge">4</span> Generate Video</div>
+      <button class="btn-primary btn-generate" id="btn-generate">
+        Generate Video
+      </button>
+
+      <div id="video-timeline" class="timeline hidden">
+        <div class="tl-item" id="tl-submit">
+          <div class="tl-dot"></div>
+          <div class="tl-content">
+            <div class="tl-title">Submit Task</div>
+            <div class="tl-detail" id="tl-submit-detail">Waiting…</div>
+          </div>
+        </div>
+        <div class="tl-item" id="tl-poll">
+          <div class="tl-dot"></div>
+          <div class="tl-content">
+            <div class="tl-title">Processing</div>
+            <div class="tl-detail" id="tl-poll-detail">Waiting…</div>
+          </div>
+        </div>
+        <div class="tl-item" id="tl-done">
+          <div class="tl-dot"></div>
+          <div class="tl-content">
+            <div class="tl-title">Video Ready</div>
+            <div class="tl-detail" id="tl-done-detail">Waiting…</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="task-id-row" class="id-card hidden">
+        <div class="id-row"><span class="id-label">Task ID</span><code id="out-task-id">—</code></div>
+        <div class="id-row"><span class="id-label">Status</span><span id="out-task-status" class="badge">—</span></div>
+        <div id="progress-wrap" class="hidden">
+          <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+          <span class="progress-label" id="progress-label">0 / 60</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 5 — Result -->
+    <div class="step-block" id="step5-block">
+      <div class="step-label"><span class="step-badge">5</span> Your Video</div>
+      <div id="video-result" class="hidden">
+        <video id="result-video" controls autoplay muted loop></video>
+        <div class="video-actions">
+          <a id="video-download-link" href="#" class="btn-primary" download>⬇ Download MP4</a>
+          <button class="btn-ghost" id="btn-copy-url">⎘ Copy URL</button>
+        </div>
+        <div id="video-url-display" class="url-display"></div>
+      </div>
+      <div id="video-placeholder" class="video-placeholder">
+        <div>🎬</div>
+        <p>Your generated video will appear here</p>
+      </div>
+    </div>
+
+    <!-- API request inspector -->
+    <details class="inspector" id="video-inspector">
+      <summary>API Request Inspector</summary>
+      <div class="inspector-tabs">
+        <button class="itab active" data-tab="req-video">Create Task Request</button>
+        <button class="itab" data-tab="res-video-create">Create Task Response</button>
+        <button class="itab" data-tab="res-video-poll">Latest Poll Response</button>
+      </div>
+      <pre class="code-block" id="req-video">{}</pre>
+      <pre class="code-block hidden" id="res-video-create">{}</pre>
+      <pre class="code-block hidden" id="res-video-poll">{}</pre>
+    </details>
+  </section>
+
+</main>
+
+<!-- ───────────── FOOTER ───────────── -->
+<footer class="site-footer">
+  <p>BytePlus ModelArk · <a href="https://docs.byteplus.com/en/docs/ModelArk/2333565" target="_blank">Private Asset Library Docs</a> · <a href="https://docs.byteplus.com/en/docs/ModelArk/1520757" target="_blank">Seedance 2.0 API Docs</a></p>
+</footer>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>
