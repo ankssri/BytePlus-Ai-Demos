@@ -10,7 +10,7 @@ from io import BytesIO
 
 import requests
 from PIL import Image
-from flask import Flask, jsonify, request, render_template, send_from_directory
+from flask import Flask, jsonify, request, render_template
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -34,6 +34,19 @@ def _headers():
         "Authorization": f"Bearer {API_KEY}",
         "Content-Type": "application/json",
     }
+
+
+def _safe_json(resp):
+    """Parse a requests.Response as JSON. On failure return a dict with debug info."""
+    try:
+        return resp.json()
+    except Exception:
+        return {
+            "error": "Non-JSON response from BytePlus API",
+            "http_status": resp.status_code,
+            "raw_response": resp.text[:500] if resp.text else "(empty body)",
+            "url": resp.url,
+        }
 
 
 def _image_to_base64(file_storage) -> str:
@@ -115,9 +128,11 @@ def create_asset_group():
             json={"name": name, "description": description},
             timeout=30,
         )
-        data = resp.json()
-        if resp.status_code != 200:
-            return jsonify({"error": data}), resp.status_code
+        print(f"[CreateAssetGroup] status={resp.status_code} url={resp.url}")
+        print(f"[CreateAssetGroup] response body: {resp.text[:300]}")
+        data = _safe_json(resp)
+        if resp.status_code not in (200, 201):
+            return jsonify({"error": data, "http_status": resp.status_code}), resp.status_code
         return jsonify(data)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -158,9 +173,11 @@ def create_asset():
             },
             timeout=60,
         )
-        data = resp.json()
-        if resp.status_code != 200:
-            return jsonify({"error": data}), resp.status_code
+        print(f"[CreateAsset] status={resp.status_code} url={resp.url}")
+        print(f"[CreateAsset] response body: {resp.text[:300]}")
+        data = _safe_json(resp)
+        if resp.status_code not in (200, 201):
+            return jsonify({"error": data, "http_status": resp.status_code}), resp.status_code
         return jsonify(data)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -176,7 +193,7 @@ def asset_status(asset_id):
             headers=_headers(),
             timeout=15,
         )
-        return jsonify(resp.json()), resp.status_code
+        return jsonify(_safe_json(resp)), resp.status_code
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -213,9 +230,11 @@ def create_video_task():
             json=payload,
             timeout=30,
         )
-        data = resp.json()
-        if resp.status_code != 200:
-            return jsonify({"error": data}), resp.status_code
+        print(f"[CreateVideoTask] status={resp.status_code} url={resp.url}")
+        print(f"[CreateVideoTask] response body: {resp.text[:300]}")
+        data = _safe_json(resp)
+        if resp.status_code not in (200, 201):
+            return jsonify({"error": data, "http_status": resp.status_code}), resp.status_code
         return jsonify(data)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -257,6 +276,28 @@ def api_config():
         "model_id": MODEL_ID,
         "base_url": BASE_URL,
     })
+
+
+@app.route("/api/debug", methods=["GET"])
+def debug_api():
+    """Hit the asset-groups endpoint and return raw status + body for diagnostics."""
+    if not API_KEY:
+        return jsonify({"error": "ARK_API_KEY not configured"}), 500
+    try:
+        resp = requests.post(
+            ASSETS_GROUP_ENDPOINT,
+            headers=_headers(),
+            json={"name": "_debug_test", "description": "debug"},
+            timeout=15,
+        )
+        return jsonify({
+            "http_status": resp.status_code,
+            "url_called": resp.url,
+            "response_headers": dict(resp.headers),
+            "body": resp.text[:1000],
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
