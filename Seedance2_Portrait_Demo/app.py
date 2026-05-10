@@ -224,6 +224,34 @@ def validate_image_route():
 
 # ── Asset Group ───────────────────────────────────────────────────────────────
 
+@app.route("/api/list-asset-groups", methods=["GET"])
+def list_asset_groups():
+    """
+    POST https://ark.ap-southeast-1.byteplusapi.com/?Action=ListAssetGroups&Version=2024-01-01
+    Body: { ProjectName, GroupType, PageNum, PageSize }
+    Response: { ResponseMetadata: {...}, Result: { Items: [{Id, Name, Description, ...}], Total: N } }
+    """
+    page_num  = int(request.args.get("page", 1))
+    page_size = int(request.args.get("page_size", 50))
+
+    body = {
+        "ProjectName": "default",
+        "GroupType":   "AIGC",
+        "PageNum":     page_num,
+        "PageSize":    page_size,
+    }
+    data, status_code = _call_asset_api("ListAssetGroups", body)
+
+    if status_code not in (200, 201) or "error" in data:
+        return jsonify({"error": data, "http_status": status_code}), max(status_code, 400)
+
+    result = data.get("Result") or {}
+    items  = result.get("Items") or []
+    groups = [{"id": g.get("Id"), "name": g.get("Name"), "description": g.get("Description", "")}
+              for g in items]
+    return jsonify({"groups": groups, "total": result.get("Total", len(groups))})
+
+
 @app.route("/api/create-asset-group", methods=["POST"])
 def create_asset_group():
     """

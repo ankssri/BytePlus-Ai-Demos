@@ -92,7 +92,19 @@
     <div class="step-block" id="step2-block">
       <div class="step-label"><span class="step-badge">2</span> Register in Asset Library</div>
 
-      <label class="field-label">Asset Group Name</label>
+      <!-- Existing group picker -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <button class="btn-ghost btn-sm" id="btn-load-groups">Load Existing Groups</button>
+        <span id="load-groups-status" style="font-size:12px;color:var(--text-muted)"></span>
+      </div>
+      <div id="group-picker-wrap" class="hidden" style="margin-bottom:12px">
+        <label class="field-label">Select an existing group</label>
+        <select id="group-picker" class="text-input">
+          <option value="">— create a new group below —</option>
+        </select>
+      </div>
+
+      <label class="field-label">Asset Group Name <span style="font-size:11px;color:var(--text-muted)">(used only when creating a new group)</span></label>
       <input
         type="text"
         id="group-name"
@@ -150,13 +162,17 @@
     <details class="inspector" id="asset-inspector">
       <summary>API Request Inspector</summary>
       <div class="inspector-tabs">
-        <button class="itab active" data-tab="req-group">CreateAssetGroup</button>
+        <button class="itab active" data-tab="req-list-groups">ListAssetGroups</button>
+        <button class="itab" data-tab="req-group">CreateAssetGroup</button>
         <button class="itab" data-tab="req-asset">CreateAsset</button>
+        <button class="itab" data-tab="res-list-groups">List Response</button>
         <button class="itab" data-tab="res-group">Group Response</button>
         <button class="itab" data-tab="res-asset">Asset Response</button>
       </div>
-      <pre class="code-block" id="req-group">{}</pre>
+      <pre class="code-block" id="req-list-groups">{}</pre>
+      <pre class="code-block hidden" id="req-group">{}</pre>
       <pre class="code-block hidden" id="req-asset">{}</pre>
+      <pre class="code-block hidden" id="res-list-groups">{}</pre>
       <pre class="code-block hidden" id="res-group">{}</pre>
       <pre class="code-block hidden" id="res-asset">{}</pre>
     </details>
