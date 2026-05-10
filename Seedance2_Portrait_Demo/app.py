@@ -228,17 +228,21 @@ def validate_image_route():
 def list_asset_groups():
     """
     POST https://ark.ap-southeast-1.byteplusapi.com/?Action=ListAssetGroups&Version=2024-01-01
-    Body: { ProjectName, GroupType, PageNum, PageSize }
-    Response: { ResponseMetadata: {...}, Result: { Items: [{Id, Name, Description, ...}], Total: N } }
+    Body: { Filter: { GroupType (required), Name?, GroupIds? }, PageNumber, PageSize, SortBy, SortOrder, ProjectName }
+    Response: { Result: { TotalCount, Items: [{Id, Name, Description, GroupType, CreateTime, ...}], PageNumber, PageSize } }
     """
-    page_num  = int(request.args.get("page", 1))
-    page_size = int(request.args.get("page_size", 50))
+    page_number = int(request.args.get("page", 1))
+    page_size   = int(request.args.get("page_size", 50))
 
     body = {
-        "ProjectName": "default",
-        "GroupType":   "AIGC",
-        "PageNum":     page_num,
-        "PageSize":    page_size,
+        "Filter": {
+            "GroupType": "AIGC",
+        },
+        "PageNumber":   page_number,
+        "PageSize":     page_size,
+        "SortBy":       "CreateTime",
+        "SortOrder":    "Desc",
+        "ProjectName":  "default",
     }
     data, status_code = _call_asset_api("ListAssetGroups", body)
 
@@ -249,7 +253,7 @@ def list_asset_groups():
     items  = result.get("Items") or []
     groups = [{"id": g.get("Id"), "name": g.get("Name"), "description": g.get("Description", "")}
               for g in items]
-    return jsonify({"groups": groups, "total": result.get("Total", len(groups))})
+    return jsonify({"groups": groups, "total": result.get("TotalCount", len(groups))})
 
 
 @app.route("/api/create-asset-group", methods=["POST"])

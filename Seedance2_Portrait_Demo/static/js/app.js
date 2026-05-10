@@ -130,10 +130,17 @@ async function loadAssetGroups() {
   statusEl.textContent = "Loading…";
 
   setInspector("req-list-groups", {
-    method: "GET",
+    method: "POST",
     url: "https://ark.ap-southeast-1.byteplusapi.com/?Action=ListAssetGroups&Version=2024-01-01",
     auth: "HMAC-SHA256 AK/SK signature",
-    body: { ProjectName: "default", GroupType: "AIGC", PageNum: 1, PageSize: 50 },
+    body: {
+      Filter: { GroupType: "AIGC" },
+      PageNumber: 1,
+      PageSize: 50,
+      SortBy: "CreateTime",
+      SortOrder: "Desc",
+      ProjectName: "default",
+    },
   });
 
   try {
