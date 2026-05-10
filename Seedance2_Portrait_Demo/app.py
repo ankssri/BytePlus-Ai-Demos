@@ -335,6 +335,12 @@ def create_video_task():
             "role": "reference_image",
             "image_url": {"url": img_url},
         })
+    elif img_url:
+        content.append({
+            "type": "image_url",
+            "image_url": {"url": img_url},
+            "role": "reference_image",
+        })
 
     payload = {
         "model":     model_id,
