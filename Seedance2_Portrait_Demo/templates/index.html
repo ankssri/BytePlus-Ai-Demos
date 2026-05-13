@@ -67,22 +67,31 @@
       </div>
     </div>
 
-    <!-- STEP 1 — Portrait image URL -->
+    <!-- STEP 1 — Asset URL + Type -->
     <div class="step-block" id="step1-block">
-      <div class="step-label"><span class="step-badge">1</span> Provide Portrait Image URL</div>
-      <p class="field-hint">Paste a publicly accessible URL to a face portrait image. The BytePlus Asset API requires a public HTTPS URL — it does not accept base64 or file uploads.</p>
+      <div class="step-label"><span class="step-badge">1</span> Provide Asset URL</div>
+      <p class="field-hint">Paste a publicly accessible URL to your asset. The BytePlus Asset API requires a public HTTPS URL — it does not accept base64 or file uploads.</p>
 
-      <label class="field-label">Public Image URL</label>
+      <label class="field-label">Asset Type</label>
+      <select id="asset-type" class="text-input">
+        <option value="Image" selected>Image — jpeg, png, webp, bmp, tiff, gif, heic/heif (≤30 MB)</option>
+        <option value="Video">Video — mp4, mov, 480p/720p, 2–15 s (≤50 MB)</option>
+        <option value="Audio">Audio — wav, mp3, 2–15 s (≤15 MB)</option>
+      </select>
+
+      <label class="field-label">Public Asset URL</label>
       <input
         type="url"
         id="image-url-input"
         class="text-input"
         placeholder="https://example.com/portrait.jpg"
       />
-      <button class="btn-ghost btn-sm" id="btn-preview-image" style="margin-top:6px">Preview Image</button>
+      <button class="btn-ghost btn-sm" id="btn-preview-image" style="margin-top:6px">Preview Asset</button>
 
       <div id="image-preview-wrap" class="hidden" style="margin-top:12px">
-        <img id="image-preview" src="" alt="Portrait preview" style="max-width:100%;border-radius:8px" />
+        <img id="image-preview" src="" alt="Asset preview" style="max-width:100%;border-radius:8px;display:none" />
+        <video id="video-preview" controls style="max-width:100%;border-radius:8px;display:none"></video>
+        <audio id="audio-preview" controls style="width:100%;display:none"></audio>
         <button class="btn-ghost btn-sm" id="btn-clear-image" style="margin-top:6px">✕ Clear</button>
       </div>
       <div id="image-error" class="alert alert-error hidden"></div>
@@ -123,7 +132,7 @@
       />
 
       <button class="btn-primary" id="btn-register" disabled>
-        Register Portrait Asset
+        Register Asset
       </button>
 
       <!-- Progress timeline -->
