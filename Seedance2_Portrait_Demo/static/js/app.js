@@ -410,15 +410,28 @@ async function generateVideo() {
   setWorkflowStep(4);
 
   // ── Submit task ─────────────────────────────────────────────
+  const assetType = state.assetType || "Image";
   const body = { prompt, model_id: modelId };
   if (state.assetId && state.assetStatus === "Active") {
-    body.asset_id = state.assetId;
+    body.asset_id   = state.assetId;
+    body.asset_type = assetType;
   }
 
-  // Build the BytePlus-format payload preview for the inspector
+  // Build the BytePlus-format payload preview for the inspector.
+  // Seedance uses different type/role/url-container keys per modality.
+  const REFERENCE_FIELDS = {
+    Image: { type: "image_url", role: "reference_image" },
+    Video: { type: "video_url", role: "reference_video" },
+    Audio: { type: "audio_url", role: "reference_audio" },
+  };
   const previewContent = [{ type: "text", text: prompt }];
   if (state.assetId && state.assetStatus === "Active") {
-    previewContent.push({ type: "image_url", role: "reference_image", image_url: { url: `asset://${state.assetId}` } });
+    const ref = REFERENCE_FIELDS[assetType] || REFERENCE_FIELDS.Image;
+    previewContent.push({
+      type: ref.type,
+      role: ref.role,
+      [ref.type]: { url: `asset://${state.assetId}` },
+    });
   }
   const previewPayload = { model: modelId, content: previewContent, watermark: false };
   const ratioM = prompt.match(/--ratio\s+(\S+)/);

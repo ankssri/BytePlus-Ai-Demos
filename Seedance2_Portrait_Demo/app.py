@@ -348,37 +348,47 @@ def create_video_task():
     if not API_KEY:
         return jsonify({"error": "ARK_API_KEY not configured"}), 500
 
-    body_in  = request.json or {}
-    prompt   = body_in.get("prompt", "").strip()
-    asset_id = body_in.get("asset_id", "").strip()
-    img_url  = body_in.get("image_url", "").strip()
-    model_id = (body_in.get("model_id", "") or MODEL_ID).strip()
+    body_in    = request.json or {}
+    prompt     = body_in.get("prompt", "").strip()
+    asset_id   = body_in.get("asset_id", "").strip()
+    asset_type = (body_in.get("asset_type", "Image") or "Image").strip().capitalize()
+    img_url    = body_in.get("image_url", "").strip()
+    model_id   = (body_in.get("model_id", "") or MODEL_ID).strip()
 
     if not prompt:
         return jsonify({"error": "prompt is required"}), 400
+
+    if asset_type not in VALID_ASSET_TYPES:
+        return jsonify({"error": f"asset_type must be one of {sorted(VALID_ASSET_TYPES)}"}), 400
 
     # Extract --ratio / --duration / --resolution inline flags into top-level fields
     clean_prompt, extras = _parse_prompt_flags(prompt)
 
     content = [{"type": "text", "text": clean_prompt}]
 
+    # Build the reference content item according to asset modality.
+    # Seedance 2.0 uses distinct type/role/url-container keys per modality:
+    #   Image → type=image_url, role=reference_image, image_url:{url}
+    #   Video → type=video_url, role=reference_video, video_url:{url}
+    #   Audio → type=audio_url, role=reference_audio, audio_url:{url}
+    REFERENCE_FIELDS = {
+        "Image": ("image_url", "reference_image"),
+        "Video": ("video_url", "reference_video"),
+        "Audio": ("audio_url", "reference_audio"),
+    }
+
     if asset_id:
+        type_key, role = REFERENCE_FIELDS[asset_type]
         content.append({
-            "type": "image_url",
-            "role": "reference_image",
-            "image_url": {"url": f"asset://{asset_id}"},
+            "type": type_key,
+            "role": role,
+            type_key: {"url": f"asset://{asset_id}"},
         })
     elif img_url:
         content.append({
             "type": "image_url",
             "role": "reference_image",
             "image_url": {"url": img_url},
-        })
-    elif img_url:
-        content.append({
-            "type": "image_url",
-            "image_url": {"url": img_url},
-            "role": "reference_image",
         })
 
     payload = {
