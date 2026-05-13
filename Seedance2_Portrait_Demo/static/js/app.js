@@ -6,6 +6,7 @@ const state = {
   imageUrl: null,
   groupId: null,
   assetId: null,
+  assetType: null,
   assetStatus: null,
   taskId: null,
   pollTimer: null,
@@ -17,8 +18,11 @@ const $ = id => document.getElementById(id);
 const imgUrlInput      = $("image-url-input");
 const imgPreviewWrap   = $("image-preview-wrap");
 const imgPreview       = $("image-preview");
+const videoPreview     = $("video-preview");
+const audioPreview     = $("audio-preview");
 const imgError         = $("image-error");
 const btnPreviewImage  = $("btn-preview-image");
+const assetTypeSelect  = $("asset-type");
 const btnRegister      = $("btn-register");
 const assetTimeline    = $("asset-timeline");
 const assetResult      = $("asset-result");
@@ -102,19 +106,56 @@ imgUrlInput.addEventListener("input", () => {
   imgError.classList.add("hidden");
 });
 
+function hideAllPreviews() {
+  imgPreview.style.display = "none";
+  videoPreview.style.display = "none";
+  audioPreview.style.display = "none";
+  imgPreview.src = "";
+  videoPreview.src = "";
+  audioPreview.src = "";
+}
+
 btnPreviewImage.addEventListener("click", () => {
-  const url = imgUrlInput.value.trim();
+  const url  = imgUrlInput.value.trim();
+  const type = assetTypeSelect.value;
   if (!url) return;
-  imgPreview.src = url;
-  imgPreview.onload = () => imgPreviewWrap.classList.remove("hidden");
-  imgPreview.onerror = () => showError(imgError, "Could not load image from this URL. Ensure it is publicly accessible.");
+  hideAllPreviews();
+  imgError.classList.add("hidden");
+
+  if (type === "Image") {
+    imgPreview.src = url;
+    imgPreview.style.display = "block";
+    imgPreview.onload  = () => imgPreviewWrap.classList.remove("hidden");
+    imgPreview.onerror = () => showError(imgError, "Could not load image from this URL. Ensure it is publicly accessible.");
+  } else if (type === "Video") {
+    videoPreview.src = url;
+    videoPreview.style.display = "block";
+    imgPreviewWrap.classList.remove("hidden");
+    videoPreview.onerror = () => showError(imgError, "Could not load video from this URL. Ensure it is publicly accessible.");
+  } else if (type === "Audio") {
+    audioPreview.src = url;
+    audioPreview.style.display = "block";
+    imgPreviewWrap.classList.remove("hidden");
+    audioPreview.onerror = () => showError(imgError, "Could not load audio from this URL. Ensure it is publicly accessible.");
+  }
+});
+
+assetTypeSelect.addEventListener("change", () => {
+  const placeholders = {
+    Image: "https://example.com/portrait.jpg",
+    Video: "https://example.com/clip.mp4",
+    Audio: "https://example.com/voice.mp3",
+  };
+  imgUrlInput.placeholder = placeholders[assetTypeSelect.value] || placeholders.Image;
+  hideAllPreviews();
+  imgPreviewWrap.classList.add("hidden");
 });
 
 $("btn-clear-image").addEventListener("click", () => {
   imgUrlInput.value = "";
   state.imageUrl = null;
   imgPreviewWrap.classList.add("hidden");
-  imgPreview.src = "";
+  hideAllPreviews();
   btnRegister.disabled = true;
   imgError.classList.add("hidden");
   setWorkflowStep(1);
@@ -235,15 +276,16 @@ async function registerAsset() {
 
   // ── Step 2: Create asset with public URL ────────────────────
   const assetName = $("asset-name").value.trim() || "Portrait Asset";
-  tlSet("tl-upload", "active", "Registering asset URL…");
+  const assetType = assetTypeSelect.value || "Image";
+  tlSet("tl-upload", "active", `Registering ${assetType.toLowerCase()} asset…`);
 
-  const assetBody = { group_id: state.groupId, name: assetName, url: imageUrl };
+  const assetBody = { group_id: state.groupId, name: assetName, url: imageUrl, asset_type: assetType };
 
   setInspector("req-asset", {
     method: "POST",
     url: "https://ark.ap-southeast-1.byteplusapi.com/?Action=CreateAsset&Version=2024-01-01",
     auth: "HMAC-SHA256 AK/SK signature",
-    body: { GroupId: state.groupId, URL: imageUrl, AssetType: "Image", Name: assetName, ProjectName: "default" },
+    body: { GroupId: state.groupId, URL: imageUrl, AssetType: assetType, Name: assetName, ProjectName: "default" },
   });
 
   let assetResp;
@@ -258,9 +300,10 @@ async function registerAsset() {
 
     if (assetResp.error) throw new Error(JSON.stringify(assetResp.error));
 
-    state.assetId = assetResp.id;
+    state.assetId   = assetResp.id;
+    state.assetType = assetResp.asset_type || assetType;
     $("out-asset-id").textContent = state.assetId;
-    tlSet("tl-upload", "done", `Asset ID: ${state.assetId}`);
+    tlSet("tl-upload", "done", `${state.assetType} asset ID: ${state.assetId}`);
   } catch (err) {
     tlSet("tl-upload", "error", `Failed: ${err.message}`);
     resetRegisterButton();
@@ -282,7 +325,8 @@ function updateAssetStatusBadge(status) {
     state.assetStatus = "Active";
     assetNotice.classList.add("ready");
     assetNoticeIcon.textContent = "✓";
-    assetNoticeText.textContent = `Portrait asset ready (ID: ${state.assetId})`;
+    const typeLabel = (state.assetType || "Asset").toLowerCase();
+    assetNoticeText.textContent = `${typeLabel.charAt(0).toUpperCase()}${typeLabel.slice(1)} asset ready (ID: ${state.assetId})`;
     setWorkflowStep(3);
   } else if (status === "Failed") {
     assetNotice.classList.remove("ready");
@@ -334,7 +378,7 @@ function pollAssetStatus() {
 
 function resetRegisterButton() {
   btnRegister.disabled = false;
-  btnRegister.textContent = "Register Portrait Asset";
+  btnRegister.textContent = "Register Asset";
 }
 
 // ── Sample prompts ───────────────────────────────────────────────
