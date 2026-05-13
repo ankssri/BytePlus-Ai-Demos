@@ -281,27 +281,34 @@ def create_asset_group():
 
 # ── Asset ─────────────────────────────────────────────────────────────────────
 
+VALID_ASSET_TYPES = {"Image", "Video", "Audio"}
+
+
 @app.route("/api/create-asset", methods=["POST"])
 def create_asset():
     """
     POST https://ark.ap-southeast-1.byteplusapi.com/?Action=CreateAsset&Version=2024-01-01
     Body: { GroupId, URL (public URL only — base64 not supported), AssetType, Name, ProjectName }
+    AssetType: "Image" | "Video" | "Audio"
     Response: { ResponseMetadata: {...}, Result: { Id: "asset-..." } }
     """
     body_in    = request.json or {}
     group_id   = body_in.get("group_id", "").strip()
     asset_name = body_in.get("name", "Portrait Asset").strip()
-    image_url  = body_in.get("url", "").strip()
+    asset_url  = body_in.get("url", "").strip()
+    asset_type = (body_in.get("asset_type", "Image") or "Image").strip().capitalize()
 
     if not group_id:
         return jsonify({"error": "group_id is required"}), 400
-    if not image_url:
-        return jsonify({"error": "url is required — must be a publicly accessible image URL"}), 400
+    if not asset_url:
+        return jsonify({"error": "url is required — must be a publicly accessible URL"}), 400
+    if asset_type not in VALID_ASSET_TYPES:
+        return jsonify({"error": f"asset_type must be one of {sorted(VALID_ASSET_TYPES)}"}), 400
 
     body = {
         "GroupId":     group_id,
-        "URL":         image_url,
-        "AssetType":   "Image",
+        "URL":         asset_url,
+        "AssetType":   asset_type,
         "Name":        asset_name,
         "ProjectName": "default",
     }
@@ -311,7 +318,7 @@ def create_asset():
         return jsonify({"error": data, "http_status": status_code}), max(status_code, 400)
 
     asset_id = (data.get("Result") or {}).get("Id")
-    return jsonify({"id": asset_id, "raw": data})
+    return jsonify({"id": asset_id, "asset_type": asset_type, "raw": data})
 
 
 @app.route("/api/asset-status/<asset_id>", methods=["GET"])
