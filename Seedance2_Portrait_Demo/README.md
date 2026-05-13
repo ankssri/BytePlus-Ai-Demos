@@ -8,8 +8,8 @@ A Flask web application that demonstrates the full BytePlus ModelArk **Seedance 
 
 The app walks through five steps:
 
-1. **Provide Portrait URL** — paste a publicly accessible HTTPS link to a face image
-2. **Register Asset** — create (or reuse) an asset group and register the image in BytePlus's Private Asset Library
+1. **Provide Asset URL** — paste a publicly accessible HTTPS link to an **image**, **video**, or **audio** file
+2. **Register Asset** — create (or reuse) an asset group and register the asset in BytePlus's Private Asset Library
 3. **Write Prompt** — describe the video scene; append `--ratio`, `--resolution`, `--duration` for output settings
 4. **Generate Video** — submit a Seedance 2.0 generation task and poll until complete
 5. **Watch Result** — play and download the generated MP4
@@ -26,7 +26,15 @@ An **API Request Inspector** panel shows the exact JSON sent and received at eve
 | **ARK_API_KEY** | BytePlus ModelArk Console → **API Keys** — used for video generation (Bearer token) |
 | **ARK_AK** | BytePlus Console → **Access Keys** → Access Key ID — used for asset library APIs (HMAC-SHA256) |
 | **ARK_SK** | BytePlus Console → **Access Keys** → Secret Access Key — used for asset library APIs (HMAC-SHA256) |
-| Public image URL | A publicly accessible HTTPS URL to a face portrait image (min 300×300 px) |
+| Public asset URL | A publicly accessible HTTPS URL to an image, video, or audio file (see asset-type requirements below) |
+
+### Asset-type requirements (per BytePlus CreateAsset API)
+
+| Type | Formats | Constraints |
+|------|---------|-------------|
+| `Image` | jpeg, png, webp, bmp, tiff, gif, heic/heif | 300–6000 px (w/h), aspect 0.4–2.5, ≤ 30 MB |
+| `Video` | mp4, mov | 480p / 720p, 2–15 s, 24–60 fps, ≤ 50 MB |
+| `Audio` | wav, mp3 | 2–15 s, ≤ 15 MB |
 
 > The asset library APIs (`CreateAssetGroup`, `CreateAsset`, `GetAsset`, `ListAssetGroups`) use a different host and authentication scheme from the video generation API. Both sets of credentials are required.
 
@@ -113,7 +121,7 @@ Seedance2_Portrait_Demo/
 | `GET` | `/api/config` | Check which credentials are configured |
 | `GET` | `/api/list-asset-groups` | List existing asset groups (HMAC-SHA256) |
 | `POST` | `/api/create-asset-group` | Create a new asset group (HMAC-SHA256) |
-| `POST` | `/api/create-asset` | Register an image URL as an asset (HMAC-SHA256) |
+| `POST` | `/api/create-asset` | Register an Image, Video, or Audio URL as an asset (HMAC-SHA256) |
 | `GET` | `/api/asset-status/<id>` | Poll asset verification status (HMAC-SHA256) |
 | `POST` | `/api/create-video-task` | Submit a Seedance 2.0 generation task (Bearer) |
 | `GET` | `/api/video-task/<id>` | Poll video generation task status (Bearer) |
