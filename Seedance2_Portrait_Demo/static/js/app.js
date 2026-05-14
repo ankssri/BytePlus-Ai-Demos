@@ -11,6 +11,7 @@ const state = {
   taskId: null,
   pollTimer: null,
   assetPollTimer: null,
+  _fromPicker: false,
 };
 
 // ── DOM refs ─────────────────────────────────────────────────────
@@ -34,9 +35,13 @@ const videoPlaceholder = $("video-placeholder");
 const assetNotice      = $("asset-notice");
 const assetNoticeIcon  = $("asset-notice-icon");
 const assetNoticeText  = $("asset-notice-text");
-const progressWrap     = $("progress-wrap");
-const progressFill     = $("progress-fill");
-const progressLabel    = $("progress-label");
+const progressWrap       = $("progress-wrap");
+const progressFill       = $("progress-fill");
+const progressLabel      = $("progress-label");
+const assetPickerWrap    = $("asset-picker-wrap");
+const assetPicker        = $("asset-picker");
+const loadAssetsStatus   = $("load-assets-status");
+const selectedAssetInfo  = $("selected-asset-info");
 
 // ── Workflow step highlighter ────────────────────────────────────
 function setWorkflowStep(n) {
@@ -218,10 +223,97 @@ $("group-picker").addEventListener("change", function () {
     $("out-group-id").textContent = this.value;
     $("asset-result").classList.remove("hidden");
     tlSet("tl-group", "done", `Using existing group: ${this.value}`);
+    loadAssets(this.value);
   } else {
     state.groupId = null;
     $("out-group-id").textContent = "—";
+    assetPickerWrap.classList.add("hidden");
+    selectedAssetInfo.classList.add("hidden");
   }
+});
+
+async function loadAssets(groupId) {
+  assetPickerWrap.classList.remove("hidden");
+  loadAssetsStatus.textContent = "Loading…";
+  assetPicker.innerHTML = '<option value="">— loading… —</option>';
+  selectedAssetInfo.classList.add("hidden");
+
+  const reqBody = {
+    Filter: { GroupIds: [groupId], GroupType: "AIGC" },
+    PageNumber: 1,
+    PageSize: 50,
+    SortBy: "CreateTime",
+    SortOrder: "Desc",
+    ProjectName: "default",
+  };
+  setInspector("req-list-assets", {
+    method: "POST",
+    url: "https://ark.ap-southeast-1.byteplusapi.com/?Action=ListAssets&Version=2024-01-01",
+    auth: "HMAC-SHA256 AK/SK signature",
+    body: reqBody,
+  });
+
+  try {
+    const r = await fetch(`/api/list-assets?group_id=${encodeURIComponent(groupId)}`);
+    const d = await r.json();
+    setInspector("res-list-assets", d);
+
+    if (d.error) throw new Error(JSON.stringify(d.error));
+
+    const assets = d.assets || [];
+    assetPicker.innerHTML = '<option value="">— select an existing asset —</option>';
+    assets.forEach(a => {
+      const icon   = a.status === "Active" ? "✓" : a.status === "Failed" ? "✗" : "⏳";
+      const opt    = document.createElement("option");
+      opt.value    = a.id;
+      opt.textContent = `${icon} ${a.name}  (${a.asset_type})  —  ${a.id}`;
+      opt.dataset.assetType = a.asset_type;
+      opt.dataset.status    = a.status;
+      assetPicker.appendChild(opt);
+    });
+
+    loadAssetsStatus.textContent = `${d.total ?? assets.length} asset(s)`;
+  } catch (err) {
+    loadAssetsStatus.textContent = `Error: ${err.message}`;
+    assetPicker.innerHTML = '<option value="">— failed to load —</option>';
+  }
+}
+
+assetPicker.addEventListener("change", function () {
+  const opt = this.options[this.selectedIndex];
+  if (!this.value) {
+    selectedAssetInfo.classList.add("hidden");
+    if (state._fromPicker) {
+      state.assetId     = null;
+      state.assetType   = null;
+      state.assetStatus = null;
+      state._fromPicker = false;
+      updateAssetStatusBadge("");
+      assetNotice.classList.remove("ready");
+      assetNoticeIcon.textContent = "⏳";
+      assetNoticeText.textContent = "No asset selected. You can still generate without one.";
+    }
+    return;
+  }
+
+  const assetType = opt.dataset.assetType || "Image";
+  const status    = opt.dataset.status || "";
+
+  $("sel-asset-id").textContent   = this.value;
+  $("sel-asset-type").textContent = assetType;
+  const statusBadge = $("sel-asset-status");
+  statusBadge.textContent = status;
+  statusBadge.className   = `badge ${status}`;
+  selectedAssetInfo.classList.remove("hidden");
+
+  state.assetId     = this.value;
+  state.assetType   = assetType;
+  state.assetStatus = status;
+  state._fromPicker = true;
+
+  $("out-asset-id").textContent = this.value;
+  assetResult.classList.remove("hidden");
+  updateAssetStatusBadge(status);
 });
 
 // ── Register asset ───────────────────────────────────────────────
@@ -300,8 +392,9 @@ async function registerAsset() {
 
     if (assetResp.error) throw new Error(JSON.stringify(assetResp.error));
 
-    state.assetId   = assetResp.id;
-    state.assetType = assetResp.asset_type || assetType;
+    state.assetId     = assetResp.id;
+    state.assetType   = assetResp.asset_type || assetType;
+    state._fromPicker = false;
     $("out-asset-id").textContent = state.assetId;
     tlSet("tl-upload", "done", `${state.assetType} asset ID: ${state.assetId}`);
   } catch (err) {
@@ -458,7 +551,6 @@ async function generateVideo() {
       body: JSON.stringify(body),
     });
     taskResp = await r.json();
-    // Update inspector with the actual payload the backend sent to BytePlus
     if (taskResp._byteplus_request) {
       setInspector("req-video", {
         method: "POST",
