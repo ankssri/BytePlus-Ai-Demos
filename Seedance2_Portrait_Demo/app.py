@@ -1,1 +1,479 @@
-"""\nBytePlus ModelArk — Seedance 2.0 Portrait Video Demo\n\nTwo separate auth schemes (confirmed from official BytePlus docs):\n  Asset APIs  → Host: ark.ap-southeast-1.byteplusapi.com\n                Auth: HMAC-SHA256 AK/SK signature\n                Pattern: POST /?Action=<Action>&Version=2024-01-01\n\n  Video APIs  → Host: ark.ap-southeast.bytepluses.com\n                Auth: Bearer API Key\n                Pattern: REST /api/v3/contents/generations/tasks\n"""\n\nimport base64\nimport hashlib\nimport hmac\nimport json\nimport os\nimport re\nfrom datetime import datetime, timezone\nfrom io import BytesIO\n\nimport requests\nfrom PIL import Image\nfrom dotenv import load_dotenv\nfrom flask import Flask, jsonify, render_template, request\n\nload_dotenv()\n\napp = Flask(__name__)\n\n# ── Video generation (Bearer token) ─────────────────────────────────────────\nVIDEO_BASE_URL = "https://ark.ap-southeast.bytepluses.com/api/v3"\nAPI_KEY        = os.getenv("ARK_API_KEY", "")\nMODEL_ID       = os.getenv("SEEDANCE_MODEL_ID", "dreamina-seedance-2-0-260128")\n\nVIDEO_CREATE_ENDPOINT = f"{VIDEO_BASE_URL}/contents/generations/tasks"\nVIDEO_QUERY_ENDPOINT  = f"{VIDEO_BASE_URL}/contents/generations/tasks"\n\n# ── Asset library (HMAC-SHA256 AK/SK) ───────────────────────────────────────\nASSET_HOST    = "ark.ap-southeast-1.byteplusapi.com"\nASSET_BASE    = f"https://{ASSET_HOST}"\nASSET_VERSION = "2024-01-01"\nASSET_REGION  = "ap-southeast-1"\nASSET_SERVICE = "ark"\n\nARK_AK = os.getenv("ARK_AK", "")\nARK_SK = os.getenv("ARK_SK", "")\n\n\n# ── Helpers ──────────────────────────────────────────────────────────────────\n\ndef _safe_json(resp) -> dict:\n    try:\n        return resp.json()\n    except Exception:\n        return {\n            "error": "Non-JSON response from BytePlus API",\n            "http_status": resp.status_code,\n            "raw_response": resp.text[:500] if resp.text else "(empty body)",\n            "url": resp.url,\n        }\n\n\ndef _video_headers() -> dict:\n    return {\n        "Authorization": f"Bearer {API_KEY}",\n        "Content-Type": "application/json",\n    }\n\n\ndef _sign_bytes(key: bytes, msg: str) -> bytes:\n    return hmac.new(key, msg.encode("utf-8"), hashlib.sha256).digest()\n\n\ndef _asset_signed_headers(action: str, body_str: str) -> dict:\n    """Build HMAC-SHA256 signed headers for BytePlus Asset API calls."""\n    body_hash = hashlib.sha256(body_str.encode("utf-8")).hexdigest()\n    now       = datetime.now(timezone.utc)\n    date_str  = now.strftime("%Y%m%d")\n    dt_str    = now.strftime("%Y%m%dT%H%M%SZ")\n\n    canonical_headers = (\n        f"content-type:application/json\\n"\n        f"host:{ASSET_HOST}\\n"\n        f"x-content-sha256:{body_hash}\\n"\n        f"x-date:{dt_str}\\n"\n    )\n    signed_headers_str = "content-type;host;x-content-sha256;x-date"\n    query = f"Action={action}&Version={ASSET_VERSION}"\n\n    canonical_request = "\\n".join([\n        "POST", "/", query,\n        canonical_headers, signed_headers_str, body_hash,\n    ])\n\n    credential_scope = f"{date_str}/{ASSET_REGION}/{ASSET_SERVICE}/request"\n    string_to_sign = "\\n".join([\n        "HMAC-SHA256",\n        dt_str,\n        credential_scope,\n        hashlib.sha256(canonical_request.encode("utf-8")).hexdigest(),\n    ])\n\n    k_date    = _sign_bytes(ARK_SK.encode("utf-8"), date_str)\n    k_region  = _sign_bytes(k_date, ASSET_REGION)\n    k_service = _sign_bytes(k_region, ASSET_SERVICE)\n    k_signing = _sign_bytes(k_service, "request")\n    signature = hmac.new(k_signing, string_to_sign.encode("utf-8"), hashlib.sha256).hexdigest()\n\n    auth = (\n        f"HMAC-SHA256 Credential={ARK_AK}/{credential_scope}, "\n        f"SignedHeaders={signed_headers_str}, "\n        f"Signature={signature}"\n    )\n\n    return {\n        "Content-Type":    "application/json",\n        "Host":            ASSET_HOST,\n        "X-Date":          dt_str,\n        "X-Content-Sha256": body_hash,\n        "Authorization":   auth,\n    }\n\n\ndef _call_asset_api(action: str, body: dict) -> tuple:\n    """Call a BytePlus Asset API with HMAC-SHA256 auth."""\n    if not ARK_AK or not ARK_SK:\n        return {"error": "ARK_AK and ARK_SK are required for asset APIs"}, 500\n\n    body_str = json.dumps(body, separators=(",", ":"))\n    url      = f"{ASSET_BASE}/?Action={action}&Version={ASSET_VERSION}"\n    headers  = _asset_signed_headers(action, body_str)\n\n    try:\n        resp = requests.post(url, headers=headers, data=body_str, timeout=30)\n        print(f"[{action}] status={resp.status_code} url={resp.url}")\n        print(f"[{action}] response={resp.text[:400]}")\n        return _safe_json(resp), resp.status_code\n    except Exception as e:\n        return {"error": str(e)}, 500\n\n\ndef _validate_image_file(file_storage):\n    try:\n        image = Image.open(file_storage.stream)\n        file_storage.stream.seek(0)\n        w, h = image.size\n        ratio = w / h\n        if image.format not in ("JPEG", "PNG", "WEBP", "BMP", "TIFF", "GIF"):\n            return False, f"Unsupported format: {image.format}", {}\n        if w < 300 or h < 300:\n            return False, f"Image too small ({w}×{h}). Minimum 300×300 px.", {}\n        if w > 6000 or h > 6000:\n            return False, f"Image too large ({w}×{h}). Maximum 6000×6000 px.", {}\n        if not (0.4 <= ratio <= 2.5):\n            return False, f"Aspect ratio {ratio:.2f} out of range (0.4–2.5).", {}\n        meta = {"width": w, "height": h, "format": image.format, "aspect_ratio": round(ratio, 2)}\n        return True, "Image is valid", meta\n    except Exception as e:\n        return False, str(e), {}\n\n\ndef _parse_prompt_flags(prompt: str) -> tuple:\n    """Extract --ratio, --duration, --resolution flags; return (clean_prompt, extras_dict)."""\n    extras = {}\n    for pattern, key, cast in [\n        (r'--ratio\\s+(\\S+)',      'ratio',      str),\n        (r'--duration\\s+(\\d+)',   'duration',   int),\n        (r'--resolution\\s+(\\S+)', 'resolution', str),\n    ]:\n        m = re.search(pattern, prompt)\n        if m:\n            extras[key] = cast(m.group(1))\n            prompt = (prompt[:m.start()] + prompt[m.end():]).strip()\n    return prompt.strip(), extras\n\n\ndef _image_to_base64(file_storage) -> str:\n    image = Image.open(file_storage.stream)\n    if image.mode == "RGBA":\n        bg = Image.new("RGB", image.size, (255, 255, 255))\n        bg.paste(image, mask=image.split()[3])\n        image = bg\n    elif image.mode != "RGB":\n        image = image.convert("RGB")\n    max_dim = 2048\n    w, h = image.size\n    if w > max_dim or h > max_dim:\n        scale = max_dim / max(w, h)\n        image = image.resize((int(w * scale), int(h * scale)), Image.LANCZOS)\n    buf = BytesIO()\n    image.save(buf, format="JPEG", quality=90)\n    return f"data:image/jpeg;base64,{base64.b64encode(buf.getvalue()).decode()}"\n\n\n# ── Routes ────────────────────────────────────────────────────────────────────\n\n@app.route("/")\ndef index():\n    return render_template("index.html", model_id=MODEL_ID)\n\n\n@app.route("/api/config", methods=["GET"])\ndef api_config():\n    return jsonify({\n        "api_key_configured": bool(API_KEY),\n        "ak_configured": bool(ARK_AK),\n        "sk_configured": bool(ARK_SK),\n        "model_id": MODEL_ID,\n        "video_base_url": VIDEO_BASE_URL,\n        "asset_host": ASSET_HOST,\n    })\n\n\n@app.route("/api/validate-image", methods=["POST"])\ndef validate_image_route():\n    if "image" not in request.files:\n        return jsonify({"error": "No image file provided"}), 400\n    file = request.files["image"]\n    valid, message, meta = _validate_image_file(file)\n    return jsonify({"valid": valid, "message": message, "meta": meta})\n\n\n# ── Asset Group ───────────────────────────────────────────────────────────────\n\n@app.route("/api/list-asset-groups", methods=["GET"])\ndef list_asset_groups():\n    """\n    POST https://ark.ap-southeast-1.byteplusapi.com/?Action=ListAssetGroups&Version=2024-01-01\n    Body: { Filter: { GroupType (required), Name?, GroupIds? }, PageNumber, PageSize, SortBy, SortOrder, ProjectName }\n    Response: { Result: { TotalCount, Items: [{Id, Name, Description, GroupType, CreateTime, ...}], PageNumber, PageSize } }\n    """\n    page_number = int(request.args.get("page", 1))\n    page_size   = int(request.args.get("page_size", 50))\n\n    body = {\n        "Filter": {\n            "GroupType": "AIGC",\n        },\n        "PageNumber":   page_number,\n        "PageSize":     page_size,\n        "SortBy":       "CreateTime",\n        "SortOrder":    "Desc",\n        "ProjectName":  "default",\n    }\n    data, status_code = _call_asset_api("ListAssetGroups", body)\n\n    if status_code not in (200, 201) or "error" in data:\n        return jsonify({"error": data, "http_status": status_code}), max(status_code, 400)\n\n    result = data.get("Result") or {}\n    items  = result.get("Items") or []\n    groups = [{"id": g.get("Id"), "name": g.get("Name"), "description": g.get("Description", "")}\n              for g in items]\n    return jsonify({"groups": groups, "total": result.get("TotalCount", len(groups))})\n\n\n@app.route("/api/list-assets", methods=["GET"])\ndef list_assets():\n    """\n    POST https://ark.ap-southeast-1.byteplusapi.com/?Action=ListAssets&Version=2024-01-01\n    Body: { Filter: { GroupIds, GroupType (required) }, PageNumber, PageSize, SortBy, SortOrder, ProjectName }\n    Response: { Result: { TotalCount, Items: [{Id, Name, URL, GroupId, AssetType, Status, ...}] } }\n    """\n    group_id  = request.args.get("group_id", "").strip()\n    page_size = int(request.args.get("page_size", 50))\n\n    if not group_id:\n        return jsonify({"error": "group_id is required"}), 400\n\n    body = {\n        "Filter": {\n            "GroupIds":  [group_id],\n            "GroupType": "AIGC",\n        },\n        "PageNumber":  1,\n        "PageSize":    page_size,\n        "SortBy":      "CreateTime",\n        "SortOrder":   "Desc",\n        "ProjectName": "default",\n    }\n    data, status_code = _call_asset_api("ListAssets", body)\n\n    if status_code not in (200, 201) or "error" in data:\n        return jsonify({"error": data, "http_status": status_code}), max(status_code, 400)\n\n    result = data.get("Result") or {}\n    items  = result.get("Items") or []\n    assets = [\n        {\n            "id":         a.get("Id"),\n            "name":       a.get("Name"),\n            "url":        a.get("URL"),\n            "asset_type": a.get("AssetType"),\n            "status":     a.get("Status"),\n            "group_id":   a.get("GroupId"),\n            "created_at": a.get("CreateTime"),\n        }\n        for a in items\n    ]\n    return jsonify({"assets": assets, "total": result.get("TotalCount", len(assets))})\n\n\n@app.route("/api/create-asset-group", methods=["POST"])\ndef create_asset_group():\n    """\n    POST https://ark.ap-southeast-1.byteplusapi.com/?Action=CreateAssetGroup&Version=2024-01-01\n    Body: { Name, Description, GroupType, ProjectName }\n    Response wraps result in: { ResponseMetadata: {...}, Result: { Id: "group-..." } }\n    """\n    body_in = request.json or {}\n    body = {\n        "Name":        body_in.get("name", "Portrait Group"),\n        "Description": body_in.get("description", ""),\n        "GroupType":   "AIGC",\n        "ProjectName": "default",\n    }\n    data, status_code = _call_asset_api("CreateAssetGroup", body)\n\n    if status_code not in (200, 201) or "error" in data:\n        return jsonify({"error": data, "http_status": status_code}), max(status_code, 400)\n\n    group_id = (data.get("Result") or {}).get("Id")\n    return jsonify({"id": group_id, "raw": data})\n\n\n# ── Asset ─────────────────────────────────────────────────────────────────────\n\nVALID_ASSET_TYPES = {"Image", "Video", "Audio"}\n\n\n@app.route("/api/create-asset", methods=["POST"])\ndef create_asset():\n    """\n    POST https://ark.ap-southeast-1.byteplusapi.com/?Action=CreateAsset&Version=2024-01-01\n    Body: { GroupId, URL (public URL only — base64 not supported), AssetType, Name, ProjectName }\n    AssetType: "Image" | "Video" | "Audio"\n    Response: { ResponseMetadata: {...}, Result: { Id: "asset-..." } }\n    """\n    body_in    = request.json or {}\n    group_id   = body_in.get("group_id", "").strip()\n    asset_name = body_in.get("name", "Portrait Asset").strip()\n    asset_url  = body_in.get("url", "").strip()\n    asset_type = (body_in.get("asset_type", "Image") or "Image").strip().capitalize()\n\n    if not group_id:\n        return jsonify({"error": "group_id is required"}), 400\n    if not asset_url:\n        return jsonify({"error": "url is required — must be a publicly accessible URL"}), 400\n    if asset_type not in VALID_ASSET_TYPES:\n        return jsonify({"error": f"asset_type must be one of {sorted(VALID_ASSET_TYPES)}"}), 400\n\n    body = {\n        "GroupId":     group_id,\n        "URL":         asset_url,\n        "AssetType":   asset_type,\n        "Name":        asset_name,\n        "ProjectName": "default",\n    }\n    data, status_code = _call_asset_api("CreateAsset", body)\n\n    if status_code not in (200, 201) or "error" in data:\n        return jsonify({"error": data, "http_status": status_code}), max(status_code, 400)\n\n    asset_id = (data.get("Result") or {}).get("Id")\n    return jsonify({"id": asset_id, "asset_type": asset_type, "raw": data})\n\n\n@app.route("/api/asset-status/<asset_id>", methods=["GET"])\ndef asset_status(asset_id):\n    """\n    POST https://ark.ap-southeast-1.byteplusapi.com/?Action=GetAsset&Version=2024-01-01\n    Body: { Id, ProjectName }\n    Response Status values: Active | Processing | Failed\n    """\n    body = {"Id": asset_id, "ProjectName": "default"}\n    data, status_code = _call_asset_api("GetAsset", body)\n    result = (data.get("Result") or {})\n    status = result.get("Status", "")\n    return jsonify({"id": asset_id, "status": status, "raw": data}), status_code\n\n\n# ── Video generation ──────────────────────────────────────────────────────────\n\n@app.route("/api/create-video-task", methods=["POST"])\ndef create_video_task():\n    """\n    POST https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks\n    Auth: Bearer API Key\n    Supports: asset URI (asset://<id>) or direct public image URL in content array.\n    In the prompt, reference images positionally: "Image 1", "Image 2" etc.\n    """\n    if not API_KEY:\n        return jsonify({"error": "ARK_API_KEY not configured"}), 500\n\n    body_in    = request.json or {}\n    prompt     = body_in.get("prompt", "").strip()\n    asset_id   = body_in.get("asset_id", "").strip()\n    asset_type = (body_in.get("asset_type", "Image") or "Image").strip().capitalize()\n    img_url    = body_in.get("image_url", "").strip()\n    model_id   = (body_in.get("model_id", "") or MODEL_ID).strip()\n\n    if not prompt:\n        return jsonify({"error": "prompt is required"}), 400\n\n    if asset_type not in VALID_ASSET_TYPES:\n        return jsonify({"error": f"asset_type must be one of {sorted(VALID_ASSET_TYPES)}"}), 400\n\n    # Extract --ratio / --duration / --resolution inline flags into top-level fields\n    clean_prompt, extras = _parse_prompt_flags(prompt)\n\n    content = [{"type": "text", "text": clean_prompt}]\n\n    # Build the reference content item according to asset modality.\n    # Seedance 2.0 uses distinct type/role/url-container keys per modality:\n    #   Image → type=image_url, role=reference_image, image_url:{url}\n    #   Video → type=video_url, role=reference_video, video_url:{url}\n    #   Audio → type=audio_url, role=reference_audio, audio_url:{url}\n    REFERENCE_FIELDS = {\n        "Image": ("image_url", "reference_image"),\n        "Video": ("video_url", "reference_video"),\n        "Audio": ("audio_url", "reference_audio"),\n    }\n\n    if asset_id:\n        type_key, role = REFERENCE_FIELDS[asset_type]\n        content.append({\n            "type": type_key,\n            "role": role,\n            type_key: {"url": f"asset://{asset_id}"},\n        })\n    elif img_url:\n        content.append({\n            "type": "image_url",\n            "role": "reference_image",\n            "image_url": {"url": img_url},\n        })\n\n    payload = {\n        "model":     model_id,\n        "content":   content,\n        "watermark": False,\n        **extras,           # ratio, duration, resolution (if present)\n    }\n\n    try:\n        resp = requests.post(\n            VIDEO_CREATE_ENDPOINT,\n            headers=_video_headers(),\n            json=payload,\n            timeout=30,\n        )\n        print(f"[CreateVideoTask] status={resp.status_code} url={resp.url}")\n        print(f"[CreateVideoTask] response={resp.text[:400]}")\n        data = _safe_json(resp)\n        if resp.status_code not in (200, 201):\n            return jsonify({"error": data, "http_status": resp.status_code}), resp.status_code\n        # Include the actual BytePlus payload so the frontend inspector can display it\n        data["_byteplus_request"] = payload\n        return jsonify(data)\n    except Exception as e:\n        return jsonify({"error": str(e)}), 500\n\n\n@app.route("/api/video-task/<task_id>", methods=["GET"])\ndef video_task_status(task_id):\n    """\n    GET https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks/{id}\n    Auth: Bearer API Key\n    Response: { id, model, status, content: { video_url }, created_at, updated_at }\n    """\n    if not API_KEY:\n        return jsonify({"error": "ARK_API_KEY not configured"}), 500\n    try:\n        resp = requests.get(\n            f"{VIDEO_QUERY_ENDPOINT}/{task_id}",\n            headers=_video_headers(),\n            timeout=15,\n        )\n        data = _safe_json(resp)\n\n        # Normalise video URL from multiple possible response shapes\n        video_url = (\n            (data.get("content") or {}).get("video_url")\n            or data.get("video_url")\n            or ((data.get("result") or {}).get("video_url"))\n            or ((data.get("data") or {}).get("video_url"))\n            or ((data.get("output") or {}).get("video_url"))\n            or ((data.get("video") or {}).get("url"))\n        )\n        if video_url:\n            data["_video_url"] = video_url\n\n        return jsonify(data), resp.status_code\n    except Exception as e:\n        return jsonify({"error": str(e)}), 500\n\n\n@app.route("/api/debug-asset", methods=["GET"])\ndef debug_asset():\n    """Raw connectivity test for the asset API endpoint."""\n    body = {"Name": "_debug", "GroupType": "AIGC", "ProjectName": "default"}\n    body_str = json.dumps(body, separators=(",", ":"))\n    url = f"{ASSET_BASE}/?Action=CreateAssetGroup&Version={ASSET_VERSION}"\n    try:\n        headers = _asset_signed_headers("CreateAssetGroup", body_str)\n        resp = requests.post(url, headers=headers, data=body_str, timeout=15)\n        return jsonify({\n            "http_status": resp.status_code,\n            "url_called": url,\n            "body": resp.text[:1000],\n        })\n    except Exception as e:\n        return jsonify({"error": str(e)}), 500\n\n\nif __name__ == "__main__":\n    port  = int(os.getenv("PORT", 5050))\n    debug = os.getenv("FLASK_DEBUG", "true").lower() == "true"\n    print(f"Starting Seedance 2.0 Portrait Demo on http://localhost:{port}")\n    app.run(host="0.0.0.0", port=port, debug=debug)\n
+"""
+BytePlus ModelArk — Seedance 2.0 Portrait Video Demo
+
+Two separate auth schemes (confirmed from official BytePlus docs):
+  Asset APIs  → Host: ark.ap-southeast-1.byteplusapi.com
+                Auth: HMAC-SHA256 AK/SK signature
+                Pattern: POST /?Action=<Action>&Version=2024-01-01
+
+  Video APIs  → Host: ark.ap-southeast.bytepluses.com
+                Auth: Bearer API Key
+                Pattern: REST /api/v3/contents/generations/tasks
+"""
+
+import base64
+import hashlib
+import hmac
+import json
+import os
+import re
+from datetime import datetime, timezone
+from io import BytesIO
+
+import requests
+from PIL import Image
+from dotenv import load_dotenv
+from flask import Flask, jsonify, render_template, request
+
+load_dotenv()
+
+app = Flask(__name__)
+
+# ── Video generation (Bearer token) ─────────────────────────────────────────
+VIDEO_BASE_URL = "https://ark.ap-southeast.bytepluses.com/api/v3"
+API_KEY        = os.getenv("ARK_API_KEY", "")
+MODEL_ID       = os.getenv("SEEDANCE_MODEL_ID", "dreamina-seedance-2-0-260128")
+
+VIDEO_CREATE_ENDPOINT = f"{VIDEO_BASE_URL}/contents/generations/tasks"
+VIDEO_QUERY_ENDPOINT  = f"{VIDEO_BASE_URL}/contents/generations/tasks"
+
+# ── Asset library (HMAC-SHA256 AK/SK) ───────────────────────────────────────
+ASSET_HOST    = "ark.ap-southeast-1.byteplusapi.com"
+ASSET_BASE    = f"https://{ASSET_HOST}"
+ASSET_VERSION = "2024-01-01"
+ASSET_REGION  = "ap-southeast-1"
+ASSET_SERVICE = "ark"
+
+ARK_AK = os.getenv("ARK_AK", "")
+ARK_SK = os.getenv("ARK_SK", "")
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+def _safe_json(resp) -> dict:
+    try:
+        return resp.json()
+    except Exception:
+        return {
+            "error": "Non-JSON response from BytePlus API",
+            "http_status": resp.status_code,
+            "raw_response": resp.text[:500] if resp.text else "(empty body)",
+            "url": resp.url,
+        }
+
+
+def _video_headers() -> dict:
+    return {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+
+def _sign_bytes(key: bytes, msg: str) -> bytes:
+    return hmac.new(key, msg.encode("utf-8"), hashlib.sha256).digest()
+
+
+def _asset_signed_headers(action: str, body_str: str) -> dict:
+    """Build HMAC-SHA256 signed headers for BytePlus Asset API calls."""
+    body_hash = hashlib.sha256(body_str.encode("utf-8")).hexdigest()
+    now       = datetime.now(timezone.utc)
+    date_str  = now.strftime("%Y%m%d")
+    dt_str    = now.strftime("%Y%m%dT%H%M%SZ")
+
+    canonical_headers = (
+        f"content-type:application/json\n"
+        f"host:{ASSET_HOST}\n"
+        f"x-content-sha256:{body_hash}\n"
+        f"x-date:{dt_str}\n"
+    )
+    signed_headers_str = "content-type;host;x-content-sha256;x-date"
+    query = f"Action={action}&Version={ASSET_VERSION}"
+
+    canonical_request = "\n".join([
+        "POST", "/", query,
+        canonical_headers, signed_headers_str, body_hash,
+    ])
+
+    credential_scope = f"{date_str}/{ASSET_REGION}/{ASSET_SERVICE}/request"
+    string_to_sign = "\n".join([
+        "HMAC-SHA256",
+        dt_str,
+        credential_scope,
+        hashlib.sha256(canonical_request.encode("utf-8")).hexdigest(),
+    ])
+
+    k_date    = _sign_bytes(ARK_SK.encode("utf-8"), date_str)
+    k_region  = _sign_bytes(k_date, ASSET_REGION)
+    k_service = _sign_bytes(k_region, ASSET_SERVICE)
+    k_signing = _sign_bytes(k_service, "request")
+    signature = hmac.new(k_signing, string_to_sign.encode("utf-8"), hashlib.sha256).hexdigest()
+
+    auth = (
+        f"HMAC-SHA256 Credential={ARK_AK}/{credential_scope}, "
+        f"SignedHeaders={signed_headers_str}, "
+        f"Signature={signature}"
+    )
+
+    return {
+        "Content-Type":    "application/json",
+        "Host":            ASSET_HOST,
+        "X-Date":          dt_str,
+        "X-Content-Sha256": body_hash,
+        "Authorization":   auth,
+    }
+
+
+def _call_asset_api(action: str, body: dict) -> tuple:
+    """Call a BytePlus Asset API with HMAC-SHA256 auth."""
+    if not ARK_AK or not ARK_SK:
+        return {"error": "ARK_AK and ARK_SK are required for asset APIs"}, 500
+
+    body_str = json.dumps(body, separators=(",", ":"))
+    url      = f"{ASSET_BASE}/?Action={action}&Version={ASSET_VERSION}"
+    headers  = _asset_signed_headers(action, body_str)
+
+    try:
+        resp = requests.post(url, headers=headers, data=body_str, timeout=30)
+        print(f"[{action}] status={resp.status_code} url={resp.url}")
+        print(f"[{action}] response={resp.text[:400]}")
+        return _safe_json(resp), resp.status_code
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+def _validate_image_file(file_storage):
+    try:
+        image = Image.open(file_storage.stream)
+        file_storage.stream.seek(0)
+        w, h = image.size
+        ratio = w / h
+        if image.format not in ("JPEG", "PNG", "WEBP", "BMP", "TIFF", "GIF"):
+            return False, f"Unsupported format: {image.format}", {}
+        if w < 300 or h < 300:
+            return False, f"Image too small ({w}x{h}). Minimum 300x300 px.", {}
+        if w > 6000 or h > 6000:
+            return False, f"Image too large ({w}x{h}). Maximum 6000x6000 px.", {}
+        if not (0.4 <= ratio <= 2.5):
+            return False, f"Aspect ratio {ratio:.2f} out of range (0.4-2.5).", {}
+        meta = {"width": w, "height": h, "format": image.format, "aspect_ratio": round(ratio, 2)}
+        return True, "Image is valid", meta
+    except Exception as e:
+        return False, str(e), {}
+
+
+def _parse_prompt_flags(prompt: str) -> tuple:
+    """Extract --ratio, --duration, --resolution flags; return (clean_prompt, extras_dict)."""
+    extras = {}
+    for pattern, key, cast in [
+        (r'--ratio\s+(\S+)',      'ratio',      str),
+        (r'--duration\s+(\d+)',   'duration',   int),
+        (r'--resolution\s+(\S+)', 'resolution', str),
+    ]:
+        m = re.search(pattern, prompt)
+        if m:
+            extras[key] = cast(m.group(1))
+            prompt = (prompt[:m.start()] + prompt[m.end():]).strip()
+    return prompt.strip(), extras
+
+
+def _image_to_base64(file_storage) -> str:
+    image = Image.open(file_storage.stream)
+    if image.mode == "RGBA":
+        bg = Image.new("RGB", image.size, (255, 255, 255))
+        bg.paste(image, mask=image.split()[3])
+        image = bg
+    elif image.mode != "RGB":
+        image = image.convert("RGB")
+    max_dim = 2048
+    w, h = image.size
+    if w > max_dim or h > max_dim:
+        scale = max_dim / max(w, h)
+        image = image.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+    buf = BytesIO()
+    image.save(buf, format="JPEG", quality=90)
+    return f"data:image/jpeg;base64,{base64.b64encode(buf.getvalue()).decode()}"
+
+
+# ── Routes ────────────────────────────────────────────────────────────────────
+
+@app.route("/")
+def index():
+    return render_template("index.html", model_id=MODEL_ID)
+
+
+@app.route("/api/config", methods=["GET"])
+def api_config():
+    return jsonify({
+        "api_key_configured": bool(API_KEY),
+        "ak_configured": bool(ARK_AK),
+        "sk_configured": bool(ARK_SK),
+        "model_id": MODEL_ID,
+        "video_base_url": VIDEO_BASE_URL,
+        "asset_host": ASSET_HOST,
+    })
+
+
+@app.route("/api/validate-image", methods=["POST"])
+def validate_image_route():
+    if "image" not in request.files:
+        return jsonify({"error": "No image file provided"}), 400
+    file = request.files["image"]
+    valid, message, meta = _validate_image_file(file)
+    return jsonify({"valid": valid, "message": message, "meta": meta})
+
+
+# ── Asset Group ───────────────────────────────────────────────────────────────
+
+@app.route("/api/list-asset-groups", methods=["GET"])
+def list_asset_groups():
+    page_number = int(request.args.get("page", 1))
+    page_size   = int(request.args.get("page_size", 50))
+
+    body = {
+        "Filter": {"GroupType": "AIGC"},
+        "PageNumber":   page_number,
+        "PageSize":     page_size,
+        "SortBy":       "CreateTime",
+        "SortOrder":    "Desc",
+        "ProjectName":  "default",
+    }
+    data, status_code = _call_asset_api("ListAssetGroups", body)
+
+    if status_code not in (200, 201) or "error" in data:
+        return jsonify({"error": data, "http_status": status_code}), max(status_code, 400)
+
+    result = data.get("Result") or {}
+    items  = result.get("Items") or []
+    groups = [{"id": g.get("Id"), "name": g.get("Name"), "description": g.get("Description", "")}
+              for g in items]
+    return jsonify({"groups": groups, "total": result.get("TotalCount", len(groups))})
+
+
+@app.route("/api/list-assets", methods=["GET"])
+def list_assets():
+    group_id  = request.args.get("group_id", "").strip()
+    page_size = int(request.args.get("page_size", 50))
+
+    if not group_id:
+        return jsonify({"error": "group_id is required"}), 400
+
+    body = {
+        "Filter": {
+            "GroupIds":  [group_id],
+            "GroupType": "AIGC",
+        },
+        "PageNumber":  1,
+        "PageSize":    page_size,
+        "SortBy":      "CreateTime",
+        "SortOrder":   "Desc",
+        "ProjectName": "default",
+    }
+    data, status_code = _call_asset_api("ListAssets", body)
+
+    if status_code not in (200, 201) or "error" in data:
+        return jsonify({"error": data, "http_status": status_code}), max(status_code, 400)
+
+    result = data.get("Result") or {}
+    items  = result.get("Items") or []
+    assets = [
+        {
+            "id":         a.get("Id"),
+            "name":       a.get("Name"),
+            "url":        a.get("URL"),
+            "asset_type": a.get("AssetType"),
+            "status":     a.get("Status"),
+            "group_id":   a.get("GroupId"),
+            "created_at": a.get("CreateTime"),
+        }
+        for a in items
+    ]
+    return jsonify({"assets": assets, "total": result.get("TotalCount", len(assets))})
+
+
+@app.route("/api/create-asset-group", methods=["POST"])
+def create_asset_group():
+    body_in = request.json or {}
+    body = {
+        "Name":        body_in.get("name", "Portrait Group"),
+        "Description": body_in.get("description", ""),
+        "GroupType":   "AIGC",
+        "ProjectName": "default",
+    }
+    data, status_code = _call_asset_api("CreateAssetGroup", body)
+
+    if status_code not in (200, 201) or "error" in data:
+        return jsonify({"error": data, "http_status": status_code}), max(status_code, 400)
+
+    group_id = (data.get("Result") or {}).get("Id")
+    return jsonify({"id": group_id, "raw": data})
+
+
+# ── Asset ─────────────────────────────────────────────────────────────────────
+
+VALID_ASSET_TYPES = {"Image", "Video", "Audio"}
+
+
+@app.route("/api/create-asset", methods=["POST"])
+def create_asset():
+    body_in    = request.json or {}
+    group_id   = body_in.get("group_id", "").strip()
+    asset_name = body_in.get("name", "Portrait Asset").strip()
+    asset_url  = body_in.get("url", "").strip()
+    asset_type = (body_in.get("asset_type", "Image") or "Image").strip().capitalize()
+
+    if not group_id:
+        return jsonify({"error": "group_id is required"}), 400
+    if not asset_url:
+        return jsonify({"error": "url is required - must be a publicly accessible URL"}), 400
+    if asset_type not in VALID_ASSET_TYPES:
+        return jsonify({"error": f"asset_type must be one of {sorted(VALID_ASSET_TYPES)}"}), 400
+
+    body = {
+        "GroupId":     group_id,
+        "URL":         asset_url,
+        "AssetType":   asset_type,
+        "Name":        asset_name,
+        "ProjectName": "default",
+    }
+    data, status_code = _call_asset_api("CreateAsset", body)
+
+    if status_code not in (200, 201) or "error" in data:
+        return jsonify({"error": data, "http_status": status_code}), max(status_code, 400)
+
+    asset_id = (data.get("Result") or {}).get("Id")
+    return jsonify({"id": asset_id, "asset_type": asset_type, "raw": data})
+
+
+@app.route("/api/asset-status/<asset_id>", methods=["GET"])
+def asset_status(asset_id):
+    body = {"Id": asset_id, "ProjectName": "default"}
+    data, status_code = _call_asset_api("GetAsset", body)
+    result = (data.get("Result") or {})
+    status = result.get("Status", "")
+    return jsonify({"id": asset_id, "status": status, "raw": data}), status_code
+
+
+# ── Video generation ──────────────────────────────────────────────────────────
+
+@app.route("/api/create-video-task", methods=["POST"])
+def create_video_task():
+    if not API_KEY:
+        return jsonify({"error": "ARK_API_KEY not configured"}), 500
+
+    body_in    = request.json or {}
+    prompt     = body_in.get("prompt", "").strip()
+    asset_id   = body_in.get("asset_id", "").strip()
+    asset_type = (body_in.get("asset_type", "Image") or "Image").strip().capitalize()
+    img_url    = body_in.get("image_url", "").strip()
+    model_id   = (body_in.get("model_id", "") or MODEL_ID).strip()
+
+    if not prompt:
+        return jsonify({"error": "prompt is required"}), 400
+
+    if asset_type not in VALID_ASSET_TYPES:
+        return jsonify({"error": f"asset_type must be one of {sorted(VALID_ASSET_TYPES)}"}), 400
+
+    clean_prompt, extras = _parse_prompt_flags(prompt)
+
+    content = [{"type": "text", "text": clean_prompt}]
+
+    # Seedance 2.0 content types per modality:
+    #   Image -> type=image_url, role=reference_image, image_url:{url}
+    #   Video -> type=video_url, role=reference_video, video_url:{url}
+    #   Audio -> type=audio_url, role=reference_audio, audio_url:{url}
+    REFERENCE_FIELDS = {
+        "Image": ("image_url", "reference_image"),
+        "Video": ("video_url", "reference_video"),
+        "Audio": ("audio_url", "reference_audio"),
+    }
+
+    if asset_id:
+        type_key, role = REFERENCE_FIELDS[asset_type]
+        content.append({
+            "type": type_key,
+            "role": role,
+            type_key: {"url": f"asset://{asset_id}"},
+        })
+    elif img_url:
+        content.append({
+            "type": "image_url",
+            "role": "reference_image",
+            "image_url": {"url": img_url},
+        })
+
+    payload = {
+        "model":     model_id,
+        "content":   content,
+        "watermark": False,
+        **extras,
+    }
+
+    try:
+        resp = requests.post(
+            VIDEO_CREATE_ENDPOINT,
+            headers=_video_headers(),
+            json=payload,
+            timeout=30,
+        )
+        print(f"[CreateVideoTask] status={resp.status_code} url={resp.url}")
+        print(f"[CreateVideoTask] response={resp.text[:400]}")
+        data = _safe_json(resp)
+        if resp.status_code not in (200, 201):
+            return jsonify({"error": data, "http_status": resp.status_code}), resp.status_code
+        data["_byteplus_request"] = payload
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/video-task/<task_id>", methods=["GET"])
+def video_task_status(task_id):
+    if not API_KEY:
+        return jsonify({"error": "ARK_API_KEY not configured"}), 500
+    try:
+        resp = requests.get(
+            f"{VIDEO_QUERY_ENDPOINT}/{task_id}",
+            headers=_video_headers(),
+            timeout=15,
+        )
+        data = _safe_json(resp)
+
+        video_url = (
+            (data.get("content") or {}).get("video_url")
+            or data.get("video_url")
+            or ((data.get("result") or {}).get("video_url"))
+            or ((data.get("data") or {}).get("video_url"))
+            or ((data.get("output") or {}).get("video_url"))
+            or ((data.get("video") or {}).get("url"))
+        )
+        if video_url:
+            data["_video_url"] = video_url
+
+        return jsonify(data), resp.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/debug-asset", methods=["GET"])
+def debug_asset():
+    """Raw connectivity test for the asset API endpoint."""
+    body = {"Name": "_debug", "GroupType": "AIGC", "ProjectName": "default"}
+    body_str = json.dumps(body, separators=(",", ":"))
+    url = f"{ASSET_BASE}/?Action=CreateAssetGroup&Version={ASSET_VERSION}"
+    try:
+        headers = _asset_signed_headers("CreateAssetGroup", body_str)
+        resp = requests.post(url, headers=headers, data=body_str, timeout=15)
+        return jsonify({
+            "http_status": resp.status_code,
+            "url_called": url,
+            "body": resp.text[:1000],
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+if __name__ == "__main__":
+    port  = int(os.getenv("PORT", 5050))
+    debug = os.getenv("FLASK_DEBUG", "true").lower() == "true"
+    print(f"Starting Seedance 2.0 Portrait Demo on http://localhost:{port}")
+    app.run(host="0.0.0.0", port=port, debug=debug)
