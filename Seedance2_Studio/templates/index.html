@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Seedance 2.0 Studio</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">◆</span>
+    <span class="brand-name">Seedance 2.0 Studio</span>
+    <span class="brand-sub">BytePlus ModelArk</span>
+  </div>
+  <div class="top-right">
+    <span class="chip" id="model-chip">{{ model_id }}</span>
+    <span class="chip chip-status" id="status-chip">connecting…</span>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- ─── LEFT: Asset Library ─────────────────────────────────── -->
+  <aside class="col col-left">
+    <div class="col-head">
+      <h2>Asset Library</h2>
+      <button class="btn btn-ghost btn-xs" id="btn-refresh-groups" title="Reload groups">↻</button>
+    </div>
+
+    <div class="library-controls">
+      <label class="field">
+        <span class="field-label">Group</span>
+        <select id="group-picker">
+          <option value="">— loading… —</option>
+        </select>
+      </label>
+
+      <div class="filter-row" id="type-filter">
+        <button class="pill is-active" data-type="">All</button>
+        <button class="pill" data-type="Image">Image</button>
+        <button class="pill" data-type="Video">Video</button>
+        <button class="pill" data-type="Audio">Audio</button>
+      </div>
+
+      <input type="search" id="asset-search" placeholder="Search assets…" />
+    </div>
+
+    <div class="asset-grid" id="asset-grid">
+      <div class="empty-state">Pick a group to load assets</div>
+    </div>
+
+    <div class="library-status" id="library-status"></div>
+  </aside>
+
+  <!-- ─── CENTER: Composer ────────────────────────────────────── -->
+  <section class="col col-center">
+
+    <div class="composer">
+      <label class="field">
+        <span class="field-label">Prompt</span>
+        <textarea id="prompt" rows="3"
+          placeholder="Describe the video you want to generate…&#10;Tip: click an asset on the left to attach it as a reference."></textarea>
+      </label>
+
+      <div class="slots">
+        <div class="slot" data-type="Image" data-limit="9">
+          <div class="slot-head">
+            <span class="slot-kind">🖼  Image references</span>
+            <span class="slot-count" data-count="Image">0 / 9</span>
+          </div>
+          <div class="slot-body">
+            <div class="slot-thumbs" data-thumbs="Image"></div>
+            <div class="slot-hint" data-hint="Image">Click Image assets on the left (up to 9)</div>
+            <input type="text" class="slot-url" data-url="Image" placeholder="or paste a public URL + Enter" />
+          </div>
+        </div>
+
+        <div class="slot" data-type="Video" data-limit="3">
+          <div class="slot-head">
+            <span class="slot-kind">🎞  Video references</span>
+            <span class="slot-count" data-count="Video">0 / 3</span>
+          </div>
+          <div class="slot-body">
+            <div class="slot-thumbs" data-thumbs="Video"></div>
+            <div class="slot-hint" data-hint="Video">Click Video assets on the left (up to 3)</div>
+            <input type="text" class="slot-url" data-url="Video" placeholder="or paste a public URL + Enter" />
+          </div>
+        </div>
+
+        <div class="slot" data-type="Audio" data-limit="3">
+          <div class="slot-head">
+            <span class="slot-kind">🎵  Audio references</span>
+            <span class="slot-count" data-count="Audio">0 / 3</span>
+          </div>
+          <div class="slot-body">
+            <div class="slot-thumbs" data-thumbs="Audio"></div>
+            <div class="slot-hint" data-hint="Audio">Click Audio assets on the left (up to 3)</div>
+            <input type="text" class="slot-url" data-url="Audio" placeholder="or paste a public URL + Enter" />
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <label class="field field-inline">
+          <span class="field-label">Ratio</span>
+          <select id="opt-ratio">
+            <option value="">auto</option>
+            <option value="16:9">16:9</option>
+            <option value="9:16">9:16</option>
+            <option value="1:1">1:1</option>
+            <option value="4:3">4:3</option>
+            <option value="3:4">3:4</option>
+          </select>
+        </label>
+        <label class="field field-inline">
+          <span class="field-label">Duration</span>
+          <select id="opt-duration">
+            <option value="">auto</option>
+            <option value="4">4s</option>
+            <option value="5" selected>5s</option>
+            <option value="6">6s</option>
+            <option value="7">7s</option>
+            <option value="8">8s</option>
+            <option value="9">9s</option>
+            <option value="10">10s</option>
+            <option value="11">11s</option>
+            <option value="12">12s</option>
+            <option value="13">13s</option>
+            <option value="14">14s</option>
+            <option value="15">15s</option>
+          </select>
+        </label>
+        <label class="field field-inline">
+          <span class="field-label">Resolution</span>
+          <select id="opt-resolution">
+            <option value="">auto</option>
+            <option value="480p">480p</option>
+            <option value="720p">720p</option>
+            <option value="1080p" selected>1080p</option>
+          </select>
+        </label>
+      </div>
+
+      <button class="btn btn-primary btn-lg" id="btn-generate">
+        <span class="sparkle">✨</span> Generate Video
+      </button>
+
+      <div class="composer-status" id="composer-status"></div>
+    </div>
+
+    <div class="output" id="output">
+      <div class="output-head">
+        <h2>Output</h2>
+        <span class="muted" id="output-meta"></span>
+      </div>
+      <div class="output-body" id="output-body">
+        <div class="empty-state">Your generated video will appear here.</div>
+      </div>
+    </div>
+
+    <details class="api-inspector">
+      <summary>API Request Inspector</summary>
+      <pre id="inspector">—</pre>
+    </details>
+  </section>
+
+  <!-- ─── RIGHT: History ──────────────────────────────────────── -->
+  <aside class="col col-right">
+    <div class="col-head">
+      <h2>History</h2>
+      <button class="btn btn-ghost btn-xs" id="btn-clear-history" title="Clear history">Clear</button>
+    </div>
+    <div class="history" id="history">
+      <div class="empty-state">Generated videos appear here.</div>
+    </div>
+  </aside>
+
+</main>
+
+<!-- Hover preview popover for videos/audio -->
+<div id="hover-preview" class="hover-preview" hidden></div>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
