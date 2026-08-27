@@ -120,14 +120,32 @@ def api_parse_script():
 
 
 # ── Routes: Step 2 — Seedream keyframe generation / editing ──────────────────
+# Identity-lock clause appended when a character reference image is supplied,
+# so Seedream keeps the exact same person across shots instead of re-inventing
+# the face/outfit from the text description alone.
+IDENTITY_LOCK = (
+    " IMPORTANT: keep the EXACT same woman as shown in the reference image — "
+    "identical face, facial features, skin tone, hairstyle and hair length, and "
+    "the same outfit (royal-blue blouse, beige trousers). Only change the pose, "
+    "camera framing and background/scene as described above. Do not change her "
+    "identity, age or clothing."
+)
+
+
 @app.route("/api/generate-keyframe", methods=["POST"])
 def api_generate_keyframe():
     body = request.json or {}
     prompt = (body.get("prompt") or "").strip()
     if not prompt:
         return jsonify({"error": "prompt is required"}), 400
+    # Optional character-reference image (an approved frame's URL) to lock the
+    # presenter's identity across shots.
+    reference = (body.get("reference_image") or "").strip()
+    if reference:
+        prompt = prompt + IDENTITY_LOCK
     result, status = bp.seedream_generate(
         prompt=prompt,
+        image=reference or None,
         size=body.get("size") or "720x1280",
         guidance_scale=body.get("guidance_scale"),
         watermark=bool(body.get("watermark", False)),

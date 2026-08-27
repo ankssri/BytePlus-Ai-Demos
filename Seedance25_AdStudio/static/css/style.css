@@ -63,6 +63,11 @@ textarea { resize: vertical; font-size: 13px; font-family: ui-monospace, monospa
 .warnings { color: var(--warn); font-size: 13px; }
 .warnings div { padding: 4px 0; }
 
+.refinfo { font-size: 13px; color: var(--muted); background: var(--card);
+  border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; margin-bottom: 14px; }
+.refinfo b { color: var(--text); }
+.card.isref { outline: 2px solid var(--accent2); }
+
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
   overflow: hidden; display: flex; flex-direction: column; }

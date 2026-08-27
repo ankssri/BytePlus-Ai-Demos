@@ -5,6 +5,8 @@ const state = {
   parsed: null,
   shots: [],      // working copy with runtime fields (imageUrl, assetId, taskId, videoUrl…)
   config: {},
+  referenceUrl: "",   // approved frame used as the character/identity reference
+  referenceKf: "",
 };
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -89,9 +91,10 @@ $("#parseBtn").addEventListener("click", async () => {
 function renderShotCards() {
   const wrap = $("#shotCards"); wrap.innerHTML = "";
   state.shots.forEach((shot, i) => wrap.appendChild(shotCard(shot, i)));
+  renderRefInfo();
 }
 function shotCard(shot, i) {
-  const card = el("div", "card" + (shot.approved ? " approved" : ""));
+  const card = el("div", "card" + (shot.approved ? " approved" : "") + (state.referenceKf === shot.kf ? " isref" : ""));
   card.id = `card-${i}`;
   const graphic = shot.is_graphic;
   card.innerHTML = `
@@ -111,11 +114,28 @@ function shotCard(shot, i) {
       <div class="actions">
         ${graphic ? "" : `<button class="btn primary small" data-act="gen" data-i="${i}">Generate</button>`}
         ${graphic ? "" : `<button class="btn small" data-act="edit" data-i="${i}">Edit frame</button>`}
+        ${graphic ? "" : `<button class="btn small" data-act="ref" data-i="${i}">${state.referenceKf === shot.kf ? "★ Reference" : "☆ Use as ref"}</button>`}
         ${graphic ? "" : `<button class="btn small" data-act="approve" data-i="${i}">${shot.approved ? "✓ Approved" : "Approve"}</button>`}
         <span class="status ${shot._st || ""}" id="st-${i}">${shot._stTxt || ""}</span>
       </div>
     </div>`;
   return card;
+}
+function renderRefInfo() {
+  const box = document.getElementById("refInfo");
+  if (!box) return;
+  box.innerHTML = state.referenceKf
+    ? `Character reference: <b>${esc(state.referenceKf)}</b> — other frames will lock to this person. <a href="#" id="clearRef">clear</a>`
+    : `No character reference set. Generate one frame, then click <b>☆ Use as ref</b> so the rest keep the same face/outfit.`;
+  const c = document.getElementById("clearRef");
+  if (c) c.addEventListener("click", (e) => { e.preventDefault(); state.referenceUrl = ""; state.referenceKf = ""; renderShotCards(); renderRefInfo(); });
+}
+function setReference(i) {
+  const shot = state.shots[i];
+  if (!shot.imageUrl) return toast("Generate this frame first, then set it as reference", true);
+  state.referenceUrl = shot.imageUrl; state.referenceKf = shot.kf;
+  renderShotCards(); renderRefInfo();
+  toast(`${shot.kf} set as character reference`);
 }
 $("#shotCards").addEventListener("click", async (e) => {
   const btn = e.target.closest("button[data-act]"); if (!btn) return;
@@ -123,6 +143,7 @@ $("#shotCards").addEventListener("click", async (e) => {
   if (act === "approve") return toggleApprove(i);
   if (act === "gen") return genKeyframe(i);
   if (act === "edit") return editKeyframe(i);
+  if (act === "ref") return setReference(i);
 });
 function setStatus(i, txt, cls) {
   state.shots[i]._st = cls || ""; state.shots[i]._stTxt = txt || "";
@@ -133,10 +154,12 @@ async function genKeyframe(i) {
   const prompt = $(`#prompt-${i}`).value.trim(); shot.image_prompt = prompt;
   if (!prompt) return toast("Prompt is empty", true);
   setStatus(i, "generating…", "run");
+  // Lock identity to the chosen reference frame (but never reference itself).
+  const useRef = state.referenceUrl && state.referenceKf !== shot.kf ? state.referenceUrl : "";
   try {
     const data = await api("/api/generate-keyframe", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, size: $("#imgSize").value.trim(), seed: Math.floor(Math.random() * 2147483000) }),
+      body: JSON.stringify({ prompt, size: $("#imgSize").value.trim(), reference_image: useRef, seed: Math.floor(Math.random() * 2147483000) }),
     });
     shot.imageUrl = data.url; shot.approved = false;
     $(`#media-${i}`).innerHTML = `<img src="${esc(data.url)}">`;
