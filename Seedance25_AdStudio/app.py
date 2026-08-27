@@ -108,6 +108,22 @@ def api_sample():
     return jsonify({"script_md": _read(script), "keyframes_md": _read(keyframes)})
 
 
+REF_SAMPLE_DIR = os.path.join(os.path.dirname(__file__), "static", "sample_refs")
+REF_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".bmp")
+
+
+@app.route("/api/ref-samples")
+def api_ref_samples():
+    """List example reference-person images bundled in static/sample_refs/."""
+    items = []
+    if os.path.isdir(REF_SAMPLE_DIR):
+        for name in sorted(os.listdir(REF_SAMPLE_DIR)):
+            if name.lower().endswith(REF_EXTS):
+                items.append({"name": name,
+                              "url": f"/static/sample_refs/{name}"})
+    return jsonify({"samples": items})
+
+
 @app.route("/api/parse-script", methods=["POST"])
 def api_parse_script():
     body = request.json or {}

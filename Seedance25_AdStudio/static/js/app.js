@@ -121,21 +121,75 @@ function shotCard(shot, i) {
     </div>`;
   return card;
 }
+// Convert any image URL (local /static example or remote) to a base64 data URI,
+// so Seedream can always fetch it (a localhost URL is not reachable by BytePlus).
+async function urlToDataURL(url) {
+  const res = await fetch(url);
+  const blob = await res.blob();
+  return await blobToDataURL(blob);
+}
+function blobToDataURL(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+}
+
 function renderRefInfo() {
   const box = document.getElementById("refInfo");
   if (!box) return;
-  box.innerHTML = state.referenceKf
-    ? `Character reference: <b>${esc(state.referenceKf)}</b> — other frames will lock to this person. <a href="#" id="clearRef">clear</a>`
-    : `No character reference set. Generate one frame, then click <b>☆ Use as ref</b> so the rest keep the same face/outfit.`;
+  const examples = (state.refSamples || []).map(s =>
+    `<img class="refthumb" src="${esc(s.url)}" title="${esc(s.name)}" data-url="${esc(s.url)}" data-name="${esc(s.name)}">`
+  ).join("");
+  const preview = state.referenceUrl
+    ? `<img src="${esc(state.referenceUrl)}"><div>Locked to <b>${esc(state.referenceLabel || state.referenceKf || "reference")}</b> · <a href="#" id="clearRef">clear</a></div>`
+    : `<div class="muted">No reference set — every frame is generated independently (face may drift).</div>`;
+  box.innerHTML = `
+    <div class="refpanel">
+      <div class="refleft">
+        <b>Character reference</b> — lock every keyframe to one person's face &amp; outfit.
+        <div class="refcontrols">
+          <label class="btn small">⬆ Upload image<input type="file" id="refUpload" accept="image/*" hidden></label>
+          ${examples ? `<span class="muted">or pick an example:</span> ${examples}` :
+            `<span class="muted">(drop photos in <code>static/sample_refs/</code> to add examples)</span>`}
+        </div>
+        <div class="muted" style="margin-top:6px">You can also generate a frame below and click <b>☆ Use as ref</b>.</div>
+      </div>
+      <div class="refpreview">${preview}</div>
+    </div>`;
+
+  const up = document.getElementById("refUpload");
+  if (up) up.addEventListener("change", async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    const data = await blobToDataURL(f);
+    setReferenceImage(data, "your upload"); toast("Reference image uploaded");
+  });
+  box.querySelectorAll(".refthumb").forEach(t => t.addEventListener("click", async () => {
+    try { const data = await urlToDataURL(t.dataset.url); setReferenceImage(data, t.dataset.name); toast(`Example "${t.dataset.name}" set as reference`); }
+    catch (err) { toast("Could not load example image", true); }
+  }));
   const c = document.getElementById("clearRef");
-  if (c) c.addEventListener("click", (e) => { e.preventDefault(); state.referenceUrl = ""; state.referenceKf = ""; renderShotCards(); renderRefInfo(); });
+  if (c) c.addEventListener("click", (e) => { e.preventDefault(); clearReference(); });
+}
+function setReferenceImage(dataUrl, label) {
+  state.referenceUrl = dataUrl; state.referenceLabel = label; state.referenceKf = "";
+  renderShotCards();
+}
+function clearReference() {
+  state.referenceUrl = ""; state.referenceKf = ""; state.referenceLabel = "";
+  renderShotCards();
 }
 function setReference(i) {
   const shot = state.shots[i];
   if (!shot.imageUrl) return toast("Generate this frame first, then set it as reference", true);
-  state.referenceUrl = shot.imageUrl; state.referenceKf = shot.kf;
-  renderShotCards(); renderRefInfo();
+  state.referenceUrl = shot.imageUrl; state.referenceKf = shot.kf; state.referenceLabel = shot.kf;
+  renderShotCards();
   toast(`${shot.kf} set as character reference`);
+}
+async function loadRefSamples() {
+  try { const d = await api("/api/ref-samples"); state.refSamples = d.samples || []; } catch { state.refSamples = []; }
 }
 $("#shotCards").addEventListener("click", async (e) => {
   const btn = e.target.closest("button[data-act]"); if (!btn) return;
@@ -343,3 +397,4 @@ $("#stitchBtn").addEventListener("click", async () => {
 // ── boot ────────────────────────────────────────────────────────────────────────
 loadConfig().catch(e => toast(e.message, true));
 loadSamples().catch(() => {});
+loadRefSamples();

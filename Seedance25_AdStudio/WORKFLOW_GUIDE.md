@@ -27,8 +27,21 @@ A hands-on run-through of producing one ad from a script.
 - **Approve** each frame you want to keep (green outline). The outro card is
   marked *graphic / post* — build it in your design tool, not Seedream.
 
-> Tip: generate the presenter's first frame, get it right, then reuse that image
-> via **Edit frame** on other shots to keep the face/outfit consistent.
+### Keep the same person across shots (character reference)
+Text alone won't guarantee an identical face. Use a **character reference** so
+every frame locks to one person's face + outfit:
+- **Upload image** — click *⬆ Upload image* in the reference panel and pick a
+  photo of the person you want (e.g. your own model shot).
+- **Example** — click one of the example thumbnails (any image dropped into
+  `static/sample_refs/`).
+- **Use a generated frame** — generate one shot, then click *☆ Use as ref* on it.
+
+Once a reference is set, every subsequent **Generate** passes that image to
+Seedream with an identity-lock instruction, so the presenter stays consistent.
+The reference itself is never re-referenced. Click *clear* to turn it off.
+
+> Recommended: set the reference **first** (upload or example), then click
+> **Generate all pending** so all 8 live shots share the same face/outfit.
 
 ## 3. Upload to Asset Library
 - Confirm the **Asset group id** (prefilled from `ASSET_GROUP_ID`).
