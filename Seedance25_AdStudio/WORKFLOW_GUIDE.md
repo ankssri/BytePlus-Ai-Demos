@@ -6,7 +6,7 @@ A hands-on run-through of producing one ad from a script.
 - `.env` filled in (`ARK_API_KEY`, `ARK_AK`, `ARK_SK`, `SEEDREAM_MODEL_ID`,
   `SEEDANCE_MODEL_ID`, `ASSET_GROUP_ID`).
 - Models activated on ModelArk (Seedream 5.0 pro, Seedance 2.5).
-- `python app.py` → open `http://localhost:5060`. The header badges should show
+- `python app.py` → open `http://localhost:8080`. The header badges should show
   **API key ✓ · AK/SK ✓ · Seedream ✓ · Seedance ✓**.
 
 ## 1. Load Script

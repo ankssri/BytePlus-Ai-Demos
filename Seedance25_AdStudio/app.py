@@ -277,7 +277,7 @@ def _ffmpeg_available():
 
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 5060))
+    port = int(os.getenv("PORT", 8080))
     debug = os.getenv("FLASK_DEBUG", "true").lower() == "true"
     print(f"Starting Seedance 2.5 Ad Studio on http://localhost:{port}")
     app.run(host="0.0.0.0", port=port, debug=debug)

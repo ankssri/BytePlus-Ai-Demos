@@ -45,7 +45,7 @@ cd Seedance25_AdStudio
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env      # then fill in your keys / model ids
-python app.py             # http://localhost:5060
+python app.py             # http://localhost:8080
 ```
 
 ### Environment (`.env` — never committed, never read by the app author)
