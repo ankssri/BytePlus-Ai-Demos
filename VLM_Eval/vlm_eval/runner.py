@@ -82,10 +82,15 @@ def aggregate(raw, items, providers, labels, repeats) -> dict:
         lat_med = statistics.median(latencies) if latencies else 0.0
         lat_max = max(latencies) if latencies else 0.0
 
-        # Per-director-metric means across scored calls.
+        # Per-director-metric means — scoped to director3d calls only, so a
+        # shared metric name (e.g. "iou" also emitted by grounding) never
+        # contaminates the director columns.
+        director_scored = [s for sid in raw[p]
+                           if item_by_id[sid].task == "director3d"
+                           for s in raw[p][sid] if s.composite is not None]
         metric_means = {}
         for mk in DIRECTOR_METRICS:
-            vals = [s.metrics.get(mk) for s in scored if s.metrics.get(mk) is not None]
+            vals = [s.metrics.get(mk) for s in director_scored if s.metrics.get(mk) is not None]
             metric_means[mk] = statistics.mean(vals) if vals else None
 
         # Score jitter: mean stddev of composite across repeats per item.

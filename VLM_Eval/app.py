@@ -16,11 +16,12 @@ from vlm_eval.providers import ChatClient
 from vlm_eval.report import render as render_report
 from vlm_eval.runner import DIRECTOR_METRICS, load_dataset, run
 from vlm_eval.tasks import get_task
-from vlm_eval.tasks.director3d import score_director
+from vlm_eval.tasks.director3d import COORD_SCALE, DIRECTOR_SCHEMA, score_director
 
 ROOT = Path(__file__).resolve().parent
 DATASETS = {
     "director3d": ROOT / "datasets/director3d/manifest.json",
+    "grounding": ROOT / "datasets/grounding/manifest.json",
     "general": ROOT / "datasets/general/manifest.json",
 }
 
@@ -107,10 +108,14 @@ with tab_compare:
                         st.warning("Not configured")
                         continue
                     client = build_client(cfg)
+                    # Use the strict director schema when a director3d item is selected.
+                    schema = (DIRECTOR_SCHEMA if (item is not None and item.task == "director3d"
+                                                  and expect_json) else None)
                     with st.spinner(f"{name}…"):
                         res = client.chat(prompt, image_paths=[image_path],
-                                          expect_json=expect_json, json_object=expect_json,
-                                          max_tokens=1500)
+                                          expect_json=expect_json,
+                                          json_object=expect_json and schema is None,
+                                          json_schema=schema, max_tokens=1500)
                     c1, c2, c3 = st.columns(3)
                     c1.metric("Latency", f"{res.latency_s:.1f}s")
                     c2.metric("Attempts", res.attempts)
@@ -121,7 +126,8 @@ with tab_compare:
 
                     # If this is a director3d dataset item, score it live.
                     if item is not None and item.task == "director3d" and res.json_valid:
-                        metrics, notes = score_director(res.json_obj, item.ground_truth)
+                        metrics, notes = score_director(res.json_obj, item.ground_truth,
+                                                        pred_coord_scale=COORD_SCALE)
                         scored = [metrics[k] for k in metrics if metrics[k] is not None]
                         comp = sum(scored) / len(scored) if scored else None
                         st.caption(f"Composite vs GT: **{comp:.2f}**" if comp is not None else "—")

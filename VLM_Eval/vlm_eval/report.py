@@ -243,7 +243,7 @@ rule-based scoring where ground truth is exact · reliability measured per call.
 
 <div class="tldr">{tldr}</div>
 
-<h2>01 · Overall leaderboard <span class="muted">(composite = mean of sub-metrics)</span></h2>
+<h2>01 · Overall leaderboard <span class="muted">(composite = overall mean across all task calls; sub-metric columns cover the 3D-director task)</span></h2>
 {_leaderboard_table(results)}
 
 <h2>02 · By track <span class="muted">(synthetic = exact GT · real = hand-labeled)</span></h2>
@@ -262,11 +262,15 @@ rule-based scoring where ground truth is exact · reliability measured per call.
 <details><summary>Raw results JSON</summary><pre>{data_json}</pre></details>
 
 <div class="foot">
-Composite is the equal-weight mean of the available sub-metrics. det F1 / IoU match predicted
-boxes to ground truth at IoU ≥ 0.5. roll = orientation quadrant. L→R / depth = pairwise ordering
-vs GT via matched boxes. light = key-light direction shares a component with GT. JSON = fraction of
-calls returning a parseable object. Synthetic scenes isolate spatial reasoning with exact ground
-truth; add real photos with hand labels to the manifest for ecological validity.
+det F1 / IoU match predicted boxes to ground truth at IoU ≥ 0.5. roll = orientation quadrant.
+L→R / depth = pairwise ordering vs GT via matched boxes. light = key-light direction shares a
+component with GT. JSON = fraction of calls returning a parseable object. Structured tasks use
+BytePlus <b>json_schema strict mode</b> (enums + required) so malformed/empty JSON is prevented;
+box coordinates are requested on the model-native <b>0-1000 normalized grid</b> and denormalized to
+pixels before scoring, so neither model is penalized for a coordinate-scale mismatch. The grounding
+track exercises the native <code>&lt;bbox&gt;</code> capability (IoU vs a single target box).
+Synthetic scenes isolate spatial reasoning with exact ground truth; add real photos with hand labels
+to the manifest for ecological validity.
 </div>
 </div></body></html>"""
 

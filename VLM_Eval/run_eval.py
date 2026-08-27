@@ -27,6 +27,7 @@ from vlm_eval.runner import load_dataset, run
 ROOT = Path(__file__).resolve().parent
 DATASETS = {
     "director3d": ROOT / "datasets/director3d/manifest.json",
+    "grounding": ROOT / "datasets/grounding/manifest.json",
     "general": ROOT / "datasets/general/manifest.json",
 }
 

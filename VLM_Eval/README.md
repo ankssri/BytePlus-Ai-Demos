@@ -17,8 +17,9 @@ handling that plumbing explicitly, so the comparison measures vision, not JSON h
 
 | Piece | File | Purpose |
 |---|---|---|
-| Provider client | `vlm_eval/providers/client.py` | One OpenAI-compatible client for **both** Seed (Ark) and Gemini, with retries, timeout, latency, and robust JSON extraction |
-| 3D-director task | `vlm_eval/tasks/director3d.py` | Replicates the customer's spatial-staging benchmark with rule-based, **unit-tested** scoring |
+| Provider client | `vlm_eval/providers/client.py` | One OpenAI-compatible client for **both** Seed (Ark) and Gemini, with **json_schema strict mode**, retries, timeout, latency, and robust JSON extraction |
+| 3D-director task | `vlm_eval/tasks/director3d.py` | Replicates the customer's spatial-staging benchmark with rule-based, **unit-tested** scoring, a strict JSON schema, and 0-1000 coordinate normalization |
+| Grounding task | `vlm_eval/tasks/grounding.py` | Seed's native `<bbox>` visual grounding (0-999 grid), IoU-scored vs exact target boxes |
 | General tasks | `vlm_eval/tasks/general.py` | OCR / counting / chart / table / spatial VQA + open-ended (LLM-judged) |
 | Datasets | `datasets/*/generate.py` | Self-contained image generators with **exact ground truth** (no downloads) |
 | Runner | `vlm_eval/runner.py` | Batch execution, repeats, aggregation |
@@ -42,6 +43,7 @@ cp .env.example .env
 
 # Generate the bundled datasets (images + exact ground truth)
 python datasets/director3d/generate.py
+python datasets/grounding/generate.py
 python datasets/general/generate.py
 ```
 
@@ -87,7 +89,7 @@ python tests/test_metrics.py        # 34/34 assertions on the rule-based scorers
 
 ---
 
-## The two tracks
+## The tracks
 
 ### 1. `director3d` — the customer's spatial-staging benchmark, replicated
 
@@ -120,22 +122,49 @@ manifest rows.
 
 ---
 
+### 3. `grounding` — Seed's native `<bbox>` capability
+
+Per BytePlus's Visual Grounding guide, Seed is trained to return a target's location as
+`<bbox>x_min y_min x_max y_max</bbox>` with coordinates **normalized to a 0-999 grid**. A harness
+that assumes absolute pixels scores these boxes as wildly wrong — a plausible *hidden cause* of
+Seed's low IoU in the customer's run. This track requests that native format from both models,
+denormalizes 0-1000 → pixels, and scores IoU against exact target boxes. 5 bundled scenes with
+colour/size/spatial disambiguation (e.g. "the yellow circle on the right").
+
+---
+
 ## Fair-shot handling (why this differs from the customer's run)
 
-The customer's failures were dominated by Seed returning unparseable JSON under thinking-mode
-stalls. This harness addresses that directly, for **both** models equally:
+The customer's failures were dominated by (a) Seed returning unparseable JSON under thinking-mode
+stalls and, very likely, (b) a coordinate-convention mismatch. This harness addresses both,
+directly and equally for **both** models — informed by BytePlus's Structured Output and Visual
+Grounding docs:
 
-- **`response_format: json_object`** on structured tasks so the model is asked for machine JSON.
-- **Robust extraction** — clean JSON, ```json fences, or JSON embedded in prose all parse.
+- **`json_schema` strict mode** (BytePlus Structured Output) on the 3D-director task: the schema
+  pins names, types, `enum`s (orientation/facing/light), `required`, and `additionalProperties:
+  false`, so missing or malformed fields are *impossible* — the definitive fix for the ~59%
+  valid-JSON rate. Falls back to `json_object` automatically if an endpoint rejects the schema.
+- **0-1000 coordinate normalization** (BytePlus Visual Grounding): both the director and grounding
+  tasks request boxes on the model-native 0-1000 grid and denormalize to pixels before scoring, so
+  neither model is penalized for a coordinate-scale mismatch.
+- **Robust extraction** — clean JSON, ```json fences, JSON in prose, and `<bbox>` tags all parse.
 - **Retries** (`MAX_RETRIES`) with a corrective "return only JSON" nudge on parse failure.
-- **`SEED_THINKING=disabled`** by default for the structured track — the turbo model answers
-  directly, removing the multi-second stalls; flip to `enabled`/`auto` to measure the trade-off.
-- **Latency + validity are reported**, not hidden: the report's Reliability section shows JSON
-  validity %, median/max latency, and score jitter across repeats, so a reliability gap is
-  visible as exactly that rather than silently dragging the capability score.
+- **`SEED_THINKING=disabled`** by default for structured tasks — the turbo model answers directly,
+  removing the multi-second stalls; flip to `enabled`/`auto` to measure the trade-off.
+- **Latency + validity are reported**, not hidden: the Reliability section shows JSON validity %,
+  median/max latency, and score jitter, so a reliability gap shows up *as* a reliability gap rather
+  than silently dragging the capability score.
 
-The result is an apples-to-apples comparison of **spatial reasoning**, with reliability surfaced
-as its own axis.
+The result is an apples-to-apples comparison of **spatial reasoning and grounding**, with
+reliability surfaced as its own axis.
+
+### Bonus: Seed's native 3D detection (`<3dbbox>`)
+
+The Grounding doc also documents a native **3D bounding-box** mode — exactly the customer's
+"3D director" use case — returning `<3dbbox>x_center y_center z_center x_size y_size z_size pitch
+yaw roll</3dbbox>` given camera intrinsics. It's a strong fit worth trying directly; a ready-to-use
+prompt template lives in `vlm_eval/tasks/grounding.py` notes. Full 3D metric scoring needs camera
+parameters + 3D ground truth, so it's left as a documented extension rather than a bundled track.
 
 ---
 
@@ -146,7 +175,7 @@ as its own axis.
   "items": [
     {
       "id": "my_item",
-      "task": "director3d | vqa_numeric | vqa_keyword | open_ended",
+      "task": "director3d | grounding | vqa_numeric | vqa_keyword | open_ended",
       "image": "images/my_item.png",
       "tags": ["multi", "depth"],
       "track": "synthetic | real",

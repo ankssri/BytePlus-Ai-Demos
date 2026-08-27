@@ -1,0 +1,116 @@
+{
+  "name": "grounding-synthetic",
+  "description": "Visual grounding scenes with exact target boxes.",
+  "items": [
+    {
+      "id": "gr01_red_circle",
+      "task": "grounding",
+      "image": "images/gr01_red_circle.png",
+      "tags": [
+        "grounding"
+      ],
+      "track": "synthetic",
+      "ground_truth": {
+        "box": [
+          640,
+          300,
+          820,
+          480
+        ],
+        "image_width": 1024,
+        "image_height": 768
+      },
+      "meta": {
+        "target": "the red circle"
+      }
+    },
+    {
+      "id": "gr02_blue_square",
+      "task": "grounding",
+      "image": "images/gr02_blue_square.png",
+      "tags": [
+        "grounding"
+      ],
+      "track": "synthetic",
+      "ground_truth": {
+        "box": [
+          420,
+          300,
+          600,
+          480
+        ],
+        "image_width": 1024,
+        "image_height": 768
+      },
+      "meta": {
+        "target": "the blue square"
+      }
+    },
+    {
+      "id": "gr03_green_triangle",
+      "task": "grounding",
+      "image": "images/gr03_green_triangle.png",
+      "tags": [
+        "grounding"
+      ],
+      "track": "synthetic",
+      "ground_truth": {
+        "box": [
+          560,
+          360,
+          780,
+          600
+        ],
+        "image_width": 1024,
+        "image_height": 768
+      },
+      "meta": {
+        "target": "the green triangle"
+      }
+    },
+    {
+      "id": "gr04_right_yellow",
+      "task": "grounding",
+      "image": "images/gr04_right_yellow.png",
+      "tags": [
+        "grounding"
+      ],
+      "track": "synthetic",
+      "ground_truth": {
+        "box": [
+          700,
+          320,
+          860,
+          480
+        ],
+        "image_width": 1024,
+        "image_height": 768
+      },
+      "meta": {
+        "target": "the yellow circle on the right"
+      }
+    },
+    {
+      "id": "gr05_purple_square",
+      "task": "grounding",
+      "image": "images/gr05_purple_square.png",
+      "tags": [
+        "grounding"
+      ],
+      "track": "synthetic",
+      "ground_truth": {
+        "box": [
+          470,
+          200,
+          560,
+          290
+        ],
+        "image_width": 1024,
+        "image_height": 768
+      },
+      "meta": {
+        "target": "the small purple square"
+      }
+    }
+  ]
+}

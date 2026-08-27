@@ -69,11 +69,22 @@ class ChatClient:
         system: str | None = None,
         expect_json: bool = False,
         json_object: bool = False,
+        json_schema: dict | None = None,
+        schema_name: str = "response",
         max_tokens: int = 2048,
         temperature: float | None = None,
         extra_body: dict | None = None,
     ) -> ChatResult:
         """Run a single chat completion.
+
+        Structured output (per BytePlus / OpenAI-compatible semantics):
+          * ``json_schema`` -> ``response_format`` json_schema **strict** mode:
+            the model is constrained to the exact schema (names, types, enums,
+            required). This is the strongest guard against the malformed/empty
+            JSON that dominated the customer's Seed failures. If the endpoint
+            rejects json_schema (HTTP 4xx), we transparently fall back to
+            ``json_object`` and retry.
+          * ``json_object`` -> guarantees valid JSON, no schema constraint.
 
         When ``expect_json`` is True the reply is parsed and retried up to
         ``MAX_RETRIES`` times if it does not contain valid JSON.
@@ -87,7 +98,12 @@ class ChatClient:
         }
         if temperature is not None:
             body["temperature"] = temperature
-        if json_object:
+        if json_schema is not None:
+            body["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {"name": schema_name, "strict": True, "schema": json_schema},
+            }
+        elif json_object:
             body["response_format"] = {"type": "json_object"}
         # Provider defaults (e.g. Seed thinking toggle) then per-call overrides.
         body.update(self.cfg.extra_body or {})
@@ -102,6 +118,7 @@ class ChatClient:
 
         last_error: Optional[str] = None
         attempts = 0
+        schema_downgraded = False
         # One base attempt plus retries; retries only add value when we need
         # valid JSON or hit a transient transport error.
         total = 1 + (self.retries if expect_json else self.retries)
@@ -113,6 +130,14 @@ class ChatClient:
                 latency = time.time() - start
                 if resp.status_code >= 400:
                     last_error = f"HTTP {resp.status_code}: {resp.text[:400]}"
+                    # If json_schema strict mode is unsupported/rejected, fall
+                    # back to json_object once and retry rather than failing.
+                    if (resp.status_code < 500 and not schema_downgraded
+                            and isinstance(body.get("response_format"), dict)
+                            and body["response_format"].get("type") == "json_schema"):
+                        body["response_format"] = {"type": "json_object"}
+                        schema_downgraded = True
+                        continue
                     # 4xx other than 429 won't fix themselves; stop early.
                     if resp.status_code != 429 and resp.status_code < 500:
                         return ChatResult(self.cfg.name, self.cfg.model, "", latency,

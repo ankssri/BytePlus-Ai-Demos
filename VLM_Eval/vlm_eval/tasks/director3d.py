@@ -20,30 +20,66 @@ from ..providers import ChatClient
 from .base import EvalItem, ItemScore, Task
 
 IOU_MATCH = 0.5
+# Models return box coordinates on a normalized 0-1000 grid — this is Seed's
+# native visual-grounding convention (coords normalized to 1000x1000), which
+# Gemini follows from the explicit instruction. The scorer denormalizes to
+# pixels before matching against ground truth, so no model is penalized for a
+# coordinate-scale mismatch (a likely hidden cause of the customer's low IoU).
+COORD_SCALE = 1000
 
-_PROMPT = """You are a 3D scene director analysing a photograph.
-The image is {w} x {h} pixels (width x height).
+# Strict JSON schema (BytePlus Structured Output / json_schema mode). Enums +
+# required + additionalProperties:false make malformed or missing fields
+# impossible, which is the direct fix for Seed's ~59% valid-JSON rate.
+DIRECTOR_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "people": {
+            "type": "array",
+            "description": "Every person visible in the image.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "box": {
+                        "type": "array",
+                        "description": "Bounding box [x1,y1,x2,y2] on a 0-1000 grid, origin top-left.",
+                        "items": {"type": "integer"},
+                    },
+                    "orientation": {
+                        "type": "string",
+                        "description": "Body roll: upright=head up, upside_down=head down, left/right=rotated 90deg toward that side.",
+                        "enum": ["upright", "upside_down", "left", "right"],
+                    },
+                    "facing": {
+                        "type": "string",
+                        "description": "Direction the person faces from the camera's view.",
+                        "enum": ["left", "right", "toward", "away"],
+                    },
+                    "depth_rank": {
+                        "type": "integer",
+                        "description": "0 = nearest the camera, larger integers = farther away.",
+                    },
+                },
+                "required": ["box", "orientation", "facing", "depth_rank"],
+                "additionalProperties": False,
+            },
+        },
+        "light_direction": {
+            "type": "string",
+            "description": "Dominant key-light direction.",
+            "enum": ["left", "right", "top", "bottom", "front"],
+        },
+    },
+    "required": ["people", "light_direction"],
+    "additionalProperties": False,
+}
 
-Detect EVERY person in the image and return ONLY a JSON object, no prose:
-{{
-  "people": [
-    {{
-      "box": [x1, y1, x2, y2],
-      "orientation": "upright" | "upside_down" | "left" | "right",
-      "facing": "left" | "right" | "toward" | "away",
-      "depth_rank": 0
-    }}
-  ],
-  "light_direction": "left" | "right" | "top" | "bottom" | "front"
-}}
-
-Rules:
-- box is in absolute pixels [x1,y1,x2,y2] with (0,0) at the top-left.
-- orientation is the body ROLL: "upright" head-up; "upside_down" head-down;
-  "left"/"right" if the body is rotated 90 degrees (head toward that side).
-- facing is the direction the person faces from the camera's view.
-- depth_rank: 0 = nearest the camera, larger integers = farther away.
-- List all people. Output MUST be valid JSON."""
+# With json_schema enforcing structure, the prompt describes only the task /
+# semantics (per BytePlus prompt guidance: don't restate the output format).
+_PROMPT = """You are a 3D scene director analysing a photograph ({w} x {h} pixels).
+Detect every person and stage the scene: for each person give a bounding box on
+a 0-1000 normalized grid (origin top-left), the body roll (orientation), the
+direction they face, and a depth rank where 0 is nearest the camera. Also report
+the dominant key-light direction."""
 
 
 class Director3DTask(Task):
@@ -56,7 +92,14 @@ class Director3DTask(Task):
 
     def run(self, client: ChatClient, item: EvalItem, judge: Optional[ChatClient] = None) -> ItemScore:
         prompt = item.prompt or self.default_prompt(item)
-        res = self._call(client, item, prompt, json_object=True, max_tokens=1500)
+        res = client.chat(
+            prompt,
+            image_paths=[item.image_path],
+            expect_json=True,
+            json_schema=DIRECTOR_SCHEMA,
+            schema_name="scene_director",
+            max_tokens=1500,
+        )
         if not res.ok or not res.json_valid:
             note = res.error or "invalid/empty JSON"
             return ItemScore(composite=None, metrics={}, valid=False,
@@ -64,7 +107,7 @@ class Director3DTask(Task):
                              error=note, notes=["invalid/empty JSON"], raw_text=res.text)
 
         pred = res.json_obj
-        metrics, notes = score_director(pred, item.ground_truth)
+        metrics, notes = score_director(pred, item.ground_truth, pred_coord_scale=COORD_SCALE)
         composite = _mean([metrics[k] for k in metrics if metrics[k] is not None]) if metrics else None
         return ItemScore(
             composite=composite,
@@ -97,6 +140,14 @@ def iou(a: list[float], b: list[float]) -> float:
 def _norm_box(b) -> list[float]:
     x1, y1, x2, y2 = float(b[0]), float(b[1]), float(b[2]), float(b[3])
     return [min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)]
+
+
+def _denorm_box(b, scale: float, w: float, h: float) -> list[float]:
+    """Map a box on a 0-`scale` grid to absolute pixels for image (w, h)."""
+    try:
+        return [b[0] / scale * w, b[1] / scale * h, b[2] / scale * w, b[3] / scale * h]
+    except (TypeError, ZeroDivisionError, IndexError):
+        return [0.0, 0.0, 0.0, 0.0]
 
 
 def match_boxes(pred: list[dict], gt: list[dict]) -> list[tuple[int, int, float]]:
@@ -145,10 +196,18 @@ def _center_x(box) -> float:
     return (b[0] + b[2]) / 2.0
 
 
-def score_director(pred: Any, ground_truth: dict) -> tuple[dict, list[str]]:
-    """Return (metrics dict, human-readable error notes)."""
+def score_director(pred: Any, ground_truth: dict,
+                   pred_coord_scale: Optional[float] = None) -> tuple[dict, list[str]]:
+    """Return (metrics dict, human-readable error notes).
+
+    ``pred_coord_scale`` denormalizes predicted box coordinates before matching:
+    when set (e.g. 1000), each predicted coordinate is mapped to pixels via
+    ``coord / scale * image_dim`` using the GT image size. This lets models
+    return coordinates on their native 0-1000 grid without being penalized.
+    """
     notes: list[str] = []
-    gt_people = (ground_truth or {}).get("people", [])
+    gt = ground_truth or {}
+    gt_people = gt.get("people", [])
     if isinstance(pred, dict):
         pred_people = pred.get("people", [])
     elif isinstance(pred, list):
@@ -156,6 +215,12 @@ def score_director(pred: Any, ground_truth: dict) -> tuple[dict, list[str]]:
     else:
         pred_people = []
     pred_people = [p for p in pred_people if isinstance(p, dict) and "box" in p]
+
+    if pred_coord_scale:
+        w = gt.get("image_width", pred_coord_scale)
+        h = gt.get("image_height", pred_coord_scale)
+        pred_people = [{**p, "box": _denorm_box(p["box"], pred_coord_scale, w, h)}
+                       for p in pred_people]
 
     matches = match_boxes(pred_people, gt_people)
     n_match = len(matches)

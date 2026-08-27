@@ -4,9 +4,11 @@ from __future__ import annotations
 from .base import EvalItem, ItemScore
 from .director3d import Director3DTask
 from .general import KeywordVQATask, NumericVQATask, OpenEndedTask
+from .grounding import GroundingTask
 
 TASKS = {
     "director3d": Director3DTask(),
+    "grounding": GroundingTask(),
     "vqa_numeric": NumericVQATask(),
     "vqa_keyword": KeywordVQATask(),
     "open_ended": OpenEndedTask(),

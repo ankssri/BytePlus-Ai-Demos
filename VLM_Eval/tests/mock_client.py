@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parent.parent
 def _load_gt_index() -> dict:
     idx = {}
     for man in (ROOT / "datasets/director3d/manifest.json",
+                ROOT / "datasets/grounding/manifest.json",
                 ROOT / "datasets/general/manifest.json"):
         if man.exists():
             data = json.loads(man.read_text())
@@ -47,7 +48,8 @@ class MockClient:
         return MockClient._GT.get(Path(image_paths[0]).name)
 
     def chat(self, prompt, image_paths=None, *, system=None, expect_json=False,
-             json_object=False, max_tokens=2048, temperature=None, extra_body=None) -> ChatResult:
+             json_object=False, json_schema=None, schema_name="response",
+             max_tokens=2048, temperature=None, extra_body=None) -> ChatResult:
         self.calls += 1
         latency = 5.5 if self.cfg.name == "gemini" else 6.5
 
@@ -65,6 +67,8 @@ class MockClient:
         task = item["task"]
         if task == "director3d":
             return self._director(item, latency)
+        if task == "grounding":
+            return self._grounding(item, latency)
         return self._general(item, task, latency)
 
     # -- director3d --------------------------------------------------------
@@ -75,13 +79,17 @@ class MockClient:
                               "I need to think about this scene...", 28.0 + latency,
                               ok=True, json_valid=False, error="invalid/empty JSON")
         gt = item["ground_truth"]
+        w, h = gt["image_width"], gt["image_height"]
         jitter = 4 if self.cfg.name == "gemini" else 16
         people = []
         for i, p in enumerate(gt["people"]):
             b = p["box"]
             d = jitter if (i + self.calls) % 2 == 0 else -jitter
+            # Emit boxes on the native 0-1000 normalized grid.
+            nb = [round((b[0] + d) / w * 1000), round((b[1] + d) / h * 1000),
+                  round((b[2] - d) / w * 1000), round((b[3] - d) / h * 1000)]
             people.append({
-                "box": [b[0] + d, b[1] + d, b[2] - d, b[3] - d],
+                "box": nb,
                 "orientation": p["orientation"],
                 "facing": p["facing"] if self.cfg.name == "gemini" or i == 0 else p["facing"],
                 "depth_rank": p["depth_rank"],
@@ -94,6 +102,17 @@ class MockClient:
         text = json.dumps(obj)
         return ChatResult(self.cfg.name, self.cfg.model, text, latency,
                           ok=True, json_obj=obj, json_valid=True)
+
+    # -- grounding ---------------------------------------------------------
+    def _grounding(self, item, latency) -> ChatResult:
+        gt = item["ground_truth"]
+        w, h = gt["image_width"], gt["image_height"]
+        b = gt["box"]
+        j = 6 if self.cfg.name == "gemini" else 22  # seed a touch looser here
+        nb = [round((b[0] + j) / w * 1000), round((b[1] + j) / h * 1000),
+              round((b[2] - j) / w * 1000), round((b[3] - j) / h * 1000)]
+        text = f"<bbox>{nb[0]} {nb[1]} {nb[2]} {nb[3]}</bbox>"
+        return ChatResult(self.cfg.name, self.cfg.model, text, latency, ok=True)
 
     # -- general -----------------------------------------------------------
     def _general(self, item, task, latency) -> ChatResult:

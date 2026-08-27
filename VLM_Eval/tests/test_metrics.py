@@ -7,8 +7,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from vlm_eval.tasks.director3d import (  # noqa: E402
-    iou, match_boxes, score_director, _pairwise_order_score,
+    iou, match_boxes, score_director, _pairwise_order_score, _denorm_box,
 )
+from vlm_eval.tasks.grounding import parse_bbox  # noqa: E402
 from vlm_eval.utils import extract_json  # noqa: E402
 
 _passed = 0
@@ -123,6 +124,42 @@ check("depth reversed zero", approx(md["depth"], 0.0))
 # empty prediction
 me, notes = score_director({"people": []}, GT)
 check("empty det_f1 zero", approx(me["det_f1"], 0.0))
+
+# -- coordinate denormalization (0-1000 grid -> pixels) --------------------
+check("denorm full", _denorm_box([0, 0, 1000, 1000], 1000, 800, 600) == [0, 0, 800, 600])
+check("denorm half", _denorm_box([500, 500, 1000, 1000], 1000, 800, 600) == [400, 300, 800, 600])
+
+# Normalized prediction (0-1000) matched against pixel GT via pred_coord_scale.
+GT_N = {
+    "image_width": 1000, "image_height": 1000,
+    "people": [{"box": [100, 100, 200, 400], "orientation": "upright",
+                "facing": "left", "depth_rank": 0}],
+    "light_direction": "left",
+}
+norm_pred = {"people": [{"box": [100, 100, 200, 400], "orientation": "upright",
+             "facing": "left", "depth_rank": 0}], "light_direction": "left"}
+mn, _ = score_director(norm_pred, GT_N, pred_coord_scale=1000)
+check("normalized perfect on square image", approx(mn["det_f1"], 1.0) and approx(mn["iou"], 1.0))
+
+# A pixel-scale prediction WITHOUT denorm would mismatch a 1000-grid GT;
+# with denorm on a non-square image the mapping still lands on GT.
+GT_NS = {
+    "image_width": 1024, "image_height": 768,
+    "people": [{"box": [512, 384, 768, 576], "orientation": "upright",
+                "facing": "left", "depth_rank": 0}],
+    "light_direction": "left",
+}
+norm_pred2 = {"people": [{"box": [500, 500, 750, 750], "orientation": "upright",
+              "facing": "left", "depth_rank": 0}], "light_direction": "left"}
+mns, _ = score_director(norm_pred2, GT_NS, pred_coord_scale=1000)
+check("normalized non-square matches", mns["iou"] > 0.9)
+
+# -- grounding bbox parsing ------------------------------------------------
+check("bbox tag", parse_bbox("<bbox>10 20 30 40</bbox>") == [10, 20, 30, 40])
+check("bbox tag spaced", parse_bbox("here: <bbox>  1 2 3 4 </bbox> done") == [1, 2, 3, 4])
+check("bbox bare ints", parse_bbox("box is 100 200 300 400") == [100, 200, 300, 400])
+check("bbox none", parse_bbox("no numbers here") is None)
+check("bbox too few", parse_bbox("only 1 2") is None)
 
 # -- JSON extraction -------------------------------------------------------
 check("json clean", extract_json('{"a": 1}') == {"a": 1})
