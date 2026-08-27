@@ -36,9 +36,18 @@ every frame locks to one person's face + outfit:
   `static/sample_refs/`).
 - **Use a generated frame** — generate one shot, then click *☆ Use as ref* on it.
 
-Once a reference is set, every subsequent **Generate** passes that image to
-Seedream with an identity-lock instruction, so the presenter stays consistent.
-The reference itself is never re-referenced. Click *clear* to turn it off.
+The panel shows which of two modes you're in:
+- **Description mode** (no reference) — each frame is drawn from the editable
+  *Presenter description*; the face can drift between shots.
+- **Reference person mode** (a reference is set) — the app **drops the verbal
+  description** and instructs Seedream to copy the exact person from the
+  reference image, changing only the scene. This is what keeps the face/outfit
+  identical. The reference itself is never re-referenced; click *clear* to
+  return to Description mode.
+
+Each card's box now holds only the **scene / action** (not the person
+description), so the person always comes from either the description or the
+reference — never both fighting each other.
 
 > Recommended: set the reference **first** (upload or example), then click
 > **Generate all pending** so all 8 live shots share the same face/outfit.

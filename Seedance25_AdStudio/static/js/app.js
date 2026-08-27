@@ -78,6 +78,7 @@ $("#parseBtn").addEventListener("click", async () => {
       body: JSON.stringify({ script_md: $("#scriptMd").value, keyframes_md: $("#keyframesMd").value }),
     });
     state.parsed = data;
+    state.presenterDesc = data.presenter || "";
     state.shots = data.shots.map(s => ({ ...s, imageUrl: "", approved: false, assetId: "", assetStatus: "", taskId: "", videoUrl: "", vidStatus: "" }));
     const w = $("#parseWarnings");
     w.innerHTML = (data.warnings || []).map(x => `<div>⚠ ${esc(x)}</div>`).join("");
@@ -108,8 +109,8 @@ function shotCard(shot, i) {
         <div class="hi">🎙 ${esc(shot.dialogue_hindi) || "<span class='en'>(no dialogue in this shot)</span>"}</div>
         <div class="en">${esc(shot.dialogue_english)}</div>
       </div>
-      <label style="color:var(--muted)">Image prompt
-        <textarea id="prompt-${i}" ${graphic ? "" : ""}>${esc(shot.image_prompt)}</textarea>
+      <label style="color:var(--muted)">Scene / action <span style="opacity:.7">(person comes from the description or reference)</span>
+        <textarea id="prompt-${i}">${esc(shot.scene || shot.image_prompt)}</textarea>
       </label>
       <div class="actions">
         ${graphic ? "" : `<button class="btn primary small" data-act="gen" data-i="${i}">Generate</button>`}
@@ -146,6 +147,9 @@ function renderRefInfo() {
   const preview = state.referenceUrl
     ? `<img src="${esc(state.referenceUrl)}"><div>Locked to <b>${esc(state.referenceLabel || state.referenceKf || "reference")}</b> · <a href="#" id="clearRef">clear</a></div>`
     : `<div class="muted">No reference set — every frame is generated independently (face may drift).</div>`;
+  const mode = state.referenceUrl
+    ? `<span class="modeon">● Reference person mode — every frame copies the reference image. The description below is ignored.</span>`
+    : `<span class="modeoff">● Description mode — every frame is drawn from the presenter description below (face may drift). Set a reference to lock identity.</span>`;
   box.innerHTML = `
     <div class="refpanel">
       <div class="refleft">
@@ -156,10 +160,17 @@ function renderRefInfo() {
             `<span class="muted">(drop photos in <code>static/sample_refs/</code> to add examples)</span>`}
         </div>
         <div class="muted" style="margin-top:6px">You can also generate a frame below and click <b>☆ Use as ref</b>.</div>
+        <div class="modeline" style="margin-top:8px">${mode}</div>
+        <details style="margin-top:8px">
+          <summary class="muted" style="cursor:pointer">Presenter description (used only in Description mode)</summary>
+          <textarea id="presenterDesc" style="width:100%;min-height:70px;margin-top:6px">${esc(state.presenterDesc || "")}</textarea>
+        </details>
       </div>
       <div class="refpreview">${preview}</div>
     </div>`;
 
+  const pd = document.getElementById("presenterDesc");
+  if (pd) pd.addEventListener("input", () => { state.presenterDesc = pd.value; });
   const up = document.getElementById("refUpload");
   if (up) up.addEventListener("change", async (e) => {
     const f = e.target.files[0]; if (!f) return;
@@ -205,15 +216,25 @@ function setStatus(i, txt, cls) {
 }
 async function genKeyframe(i) {
   const shot = state.shots[i];
-  const prompt = $(`#prompt-${i}`).value.trim(); shot.image_prompt = prompt;
-  if (!prompt) return toast("Prompt is empty", true);
+  const scene = $(`#prompt-${i}`).value.trim(); shot.scene = scene;
+  if (!scene) return toast("Scene is empty", true);
   setStatus(i, "generating…", "run");
-  // Lock identity to the chosen reference frame (but never reference itself).
+  // Lock identity to the chosen reference (upload / example / another frame),
+  // but never let a frame reference itself.
   const useRef = state.referenceUrl && state.referenceKf !== shot.kf ? state.referenceUrl : "";
   try {
+    // Send scene + presenter separately; the server composes a reference-aware
+    // prompt (drops the verbal description when a reference image is used, so
+    // the two don't fight and the exact reference person is kept).
     const data = await api("/api/generate-keyframe", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, size: $("#imgSize").value.trim(), reference_image: useRef, seed: Math.floor(Math.random() * 2147483000) }),
+      body: JSON.stringify({
+        scene,
+        presenter: state.presenterDesc || "",
+        reference_image: useRef,
+        size: $("#imgSize").value.trim(),
+        seed: Math.floor(Math.random() * 2147483000),
+      }),
     });
     shot.imageUrl = data.url; shot.approved = false;
     $(`#media-${i}`).innerHTML = `<img src="${esc(data.url)}">`;

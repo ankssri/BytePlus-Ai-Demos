@@ -225,11 +225,18 @@ def parse_keyframes(keyframes_md, presenter=""):
         om = re.search(r"\*\*Overlay:\*\*\s*(.+)", block)
         overlay = om.group(1).strip() if om else ""
 
+        # `scene` = the image prompt WITHOUT the presenter description, i.e. only
+        # the action/setting/framing. Used so that, when a character-reference
+        # image is supplied, we can drop the verbal person-description (which
+        # would otherwise fight the reference) and keep only the scene.
+        scene = re.sub(r"\[PRESENTER\]", "", image_prompt).strip(" ,.\n\t")
+
         if presenter and image_prompt:
             image_prompt = image_prompt.replace("[PRESENTER]", presenter)
         result[kf] = {
             "title": title,
             "image_prompt": image_prompt,
+            "scene": scene,
             "overlay": overlay,
             "motion_prompt": motion_prompt,
         }
@@ -300,6 +307,7 @@ def parse(script_md="", keyframes_md=""):
             "graphic": s.get("graphic", "") or kp.get("overlay", ""),
             "title": kp.get("title", ""),
             "image_prompt": kp.get("image_prompt", ""),
+            "scene": kp.get("scene", ""),
             "overlay": kp.get("overlay", "") or s.get("graphic", ""),
             "motion_prompt": kp.get("motion_prompt", ""),
             "dialogue_hindi": dlg["hindi"] if dlg else "",

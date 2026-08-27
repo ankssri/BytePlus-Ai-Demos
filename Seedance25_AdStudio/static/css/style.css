@@ -76,6 +76,9 @@ textarea { resize: vertical; font-size: 13px; font-family: ui-monospace, monospa
 .refpreview { display: flex; align-items: center; gap: 10px; }
 .refpreview img { width: 54px; height: 72px; object-fit: cover; border-radius: 8px; border: 2px solid var(--accent2); }
 .refpreview div { font-size: 12px; }
+.modeline { font-size: 12px; }
+.modeon { color: var(--ok); }
+.modeoff { color: var(--warn); }
 
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
