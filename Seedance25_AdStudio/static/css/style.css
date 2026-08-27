@@ -11,7 +11,6 @@ body {
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 22px; border-bottom: 1px solid var(--line); background: var(--panel);
-  position: sticky; top: 0; z-index: 20;
 }
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand h1 { font-size: 18px; margin: 0; letter-spacing: .2px; }
@@ -24,7 +23,8 @@ body {
 .badge.bad { color: var(--accent); border-color: rgba(225,29,42,.4); }
 
 .steps { display: flex; gap: 6px; padding: 12px 22px; flex-wrap: wrap;
-  border-bottom: 1px solid var(--line); background: var(--panel); }
+  border-bottom: 1px solid var(--line); background: var(--panel);
+  position: sticky; top: 0; z-index: 15; }
 .step { background: transparent; color: var(--muted); border: 1px solid var(--line);
   padding: 8px 14px; border-radius: 999px; cursor: pointer; font-size: 14px; }
 .step b { display: inline-grid; place-items: center; width: 20px; height: 20px;
@@ -79,6 +79,9 @@ textarea { resize: vertical; font-size: 13px; font-family: ui-monospace, monospa
 .modeline { font-size: 12px; }
 .modeon { color: var(--ok); }
 .modeoff { color: var(--warn); }
+
+.stepnav { display: flex; justify-content: space-between; gap: 12px; margin-top: 24px;
+  padding-top: 18px; border-top: 1px solid var(--line); }
 
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);

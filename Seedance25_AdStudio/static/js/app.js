@@ -30,11 +30,16 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 // ── step navigation ───────────────────────────────────────────────────────────
 $$(".step").forEach(btn => btn.addEventListener("click", () => goStep(+btn.dataset.step)));
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-goto]");
+  if (b) goStep(+b.dataset.goto);
+});
 function goStep(n) {
   $$(".step").forEach(b => b.classList.toggle("active", +b.dataset.step === n));
   $$(".panel").forEach(p => p.classList.toggle("active", p.id === `panel-${n}`));
   if (n === 3) renderAssetRows();
   if (n === 4) renderVideoCards();
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 // ── config badges ─────────────────────────────────────────────────────────────
