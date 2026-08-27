@@ -25,7 +25,7 @@ from flask import Flask, jsonify, render_template, request
 import byteplus_client as bp
 import script_parser
 
-load_dotenv()
+load_dotenv(override=True)
 
 app = Flask(__name__)
 

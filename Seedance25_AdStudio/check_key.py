@@ -17,7 +17,7 @@ import os
 import requests
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 key = os.getenv("ARK_API_KEY", "")
 model = os.getenv("SEEDREAM_MODEL_ID", "")
