@@ -1,75 +1,85 @@
-# Galaxy Honda — "Elevate Offers" · Single Seedance 2.5 Prompt (≈25 s, 9:16)
+# Galaxy Honda — "Elevate Offers" · Seedance 2.5 Prompt (≈25 s, 9:16)
 
-**Model:** Seedance 2.5 · **Output:** 720×1280 vertical (9:16), ~25 s, 24–30 fps
-**Reference images:** attach the 8 keyframe stills as image references (presenter +
-Honda Elevate + Galaxy Honda showroom) so character, wardrobe, car and setting stay
-consistent across shots. The presenter's look is locked to the reference images
-(black shirt + blue jeans), which overrides the earlier text wardrobe.
+Built to the official BytePlus Seedance 2.5 conventions: 6-part formula
+(**subject + action + environment + camera + style + constraints**), second-level
+timecodes, `Hard cut` between shots, ≤6 shots per 30 s for timecode adherence, and
+`@Image` positional reference binding. Sources listed at the bottom.
+
+**Model:** Seedance 2.5 · **Output:** 720×1280 vertical 9:16, ~25 s · **Refs:** bind
+the 8 keyframe stills as `@Image1…@Image8` in the order in the legend below.
+
+---
+
+## 🔗 Reference legend (upload the stills in this order)
+
+| Tag | What it controls |
+|-----|------------------|
+| `@Image1` | Presenter (face + wardrobe) — the recurring character |
+| `@Image2` | Exterior: Galaxy Honda forecourt / facade |
+| `@Image3` | Showroom entrance / interior |
+| `@Image4` | Grey Honda Elevate beside presenter (ELEVATE badge) |
+| `@Image5` | Presenter presenting the car's hood, showroom |
+| `@Image6` | Honda Elevate driving on mountain highway (hero B-roll) |
+| `@Image7` | Presenter beside Elevate, showroom (interest-rate shot) |
+| `@Image8` | Elevate front grille + Honda logo close-up |
+
+> One reference per element that must stay consistent — don't over-stack. If your run
+> supports per-shot binding, bind each `@Image` to its matching shot.
 
 ---
 
 ## ✅ Copy-paste prompt
 
-> **Global style:** Photorealistic cinematic automotive dealer commercial, natural
-> daylight and bright showroom lighting, warm and upbeat premium advertising look,
-> sharp focus, shallow depth of field, smooth stabilized camera, vertical 9:16.
-> **Consistent character (match reference images exactly):** a friendly Indian woman
-> in her late 20s, warm medium-brown skin, oval face with a bright genuine smile,
-> long wavy dark hair, small gold hoop earrings, a fitted black button-up shirt with
-> sleeves rolled to the forearm, a black belt with a gold buckle, high-waisted blue
-> denim jeans. Same woman, same wardrobe, same grey **Honda Elevate** SUV throughout.
+> `@Image1` is the presenter and stays identical in every live shot: a friendly Indian
+> woman in her late 20s, warm medium-brown skin, bright genuine smile, long wavy dark
+> hair, small gold hoop earrings, a fitted black button-up shirt with sleeves rolled to
+> the forearm, a black belt with a gold buckle, and high-waisted blue jeans. The car is
+> the same grey **Honda Elevate** SUV throughout. Photorealistic cinematic dealer
+> commercial, natural daylight and bright showroom lighting, warm upbeat premium
+> advertising look, vertical 9:16.
 >
-> **Shot 1 (0–3 s):** Static eye-level medium shot on the paved forecourt outside a
-> modern glass-fronted Honda dealership with a "Galaxy Honda" sign, clear blue sky.
-> She stands confidently, one hand on her hip, the other opening in a warm welcoming
-> gesture toward the showroom, smiling at camera; gentle breeze in her hair, natural
-> blink. Cut to —
+> `[0:00–0:04] MEDIUM SHOT, static eye-level` — Using `@Image2`, the presenter stands on
+> the paved forecourt outside the glass-fronted "Galaxy Honda" dealership under a clear
+> blue sky, one hand on her hip, the other opening in a warm welcoming gesture toward the
+> showroom, smiling at camera; gentle breeze in her hair. Hard cut.
 >
-> **Shot 2 (3–6 s):** Wide following dolly shot as she walks forward through the glass
-> entrance into a bright showroom, confident stride, gesturing openly, smiling; a grey
-> Honda Elevate and other Hondas on the polished reflective floor behind her. Cut to —
+> `[0:04–0:09] WIDE SHOT, steadicam follow` — Using `@Image3`, she walks forward through
+> the glass entrance into a bright modern showroom, confident stride, gesturing openly at
+> the grey Honda Elevate and other Hondas on the polished reflective floor, warm smile;
+> camera dollies smoothly with her. Hard cut.
 >
-> **Shot 3 (6–9 s):** Wide tracking shot, she walks mid-stride past the grey Honda
-> Elevate, body angled toward it, sweeping an open-hand presenting gesture at the car
-> with a confident smile; soft parallax, camera holds steady leaving clear space at
-> top-center for a title graphic. Cut to —
+> `[0:09–0:14] MEDIUM SHOT, slow push in` — Using `@Image4` and `@Image5`, she stands
+> beside the front of the grey Honda Elevate, resting one hand near the hood then opening
+> it back toward camera, the "ELEVATE" badge and Honda grille clearly in frame, confident
+> smile; car static, headroom kept at top for a badge. Hard cut.
 >
-> **Shot 4 (9–12 s):** Medium-wide shot, she walks slowly toward camera through the
-> showroom, gesturing with an open hand toward a dark-grey Honda Elevate on her right,
-> warm smile; steady framing with headroom at top for a badge. Cut to —
+> `[0:14–0:18] WIDE TRACKING SHOT, no people` — Using `@Image6`, the grey Honda Elevate
+> drives toward camera on a scenic green mountain highway with a winding road, 3/4 front
+> angle, wheels rotating, trees and guardrail rushing past with motion blur, bright
+> daylight, a sense of speed and freedom. Hard cut.
 >
-> **Shot 5 (12–14.5 s):** Medium shot, she stands beside the front of the grey Honda
-> Elevate, one hand resting lightly near the hood then opening back toward camera,
-> the "ELEVATE" badge and Honda grille clearly visible, confident smile; car static.
-> Cut to —
+> `[0:18–0:22] MEDIUM-WIDE SHOT, static` — Using `@Image7`, back in the showroom she
+> stands beside the Honda Elevate and presents it with a smooth open-hand gesture and warm
+> smile, slight weight shift; space kept at top-left for a badge. Hard cut.
 >
-> **Shot 6 (14.5–17.5 s):** Dynamic hero B-roll, no people — a grey Honda Elevate SUV
-> driving toward camera on a scenic green mountain highway with a winding road, 3/4
-> front tracking angle, wheels rotating, trees and guardrail rushing past with motion
-> blur, bright daylight, a sense of speed and freedom. Cut to —
+> `[0:22–0:25] CLOSE-UP, slow push in` — Using `@Image8`, a cinematic push-in on the Honda
+> Elevate front grille and LED headlights, chrome Honda logo and "ELEVATE" badge, glossy
+> grey paint, a subtle light glint travelling across the chrome, resolving on the emblem.
 >
-> **Shot 7 (17.5–20.5 s):** Medium-wide shot, she stands beside the dark-grey Honda
-> Elevate in the showroom, presenting it with a smooth open-hand gesture and warm
-> smile, slight weight shift; framed with space at top-left for a badge. Cut to —
->
-> **Shot 8 (20.5–22.5 s):** Slow cinematic push-in close-up on the Honda Elevate front
-> grille and LED headlights, prominent chrome Honda logo and "ELEVATE" badge, glossy
-> grey paint, a subtle light glint travelling across the chrome, premium and bold. Cut to —
->
-> **Shot 9 (22.5–25 s):** Clean brand end card — white background with soft light-blue
-> wave shapes gently drifting, a large red Honda logo and "Galaxy Honda" scaling
-> softly into frame, holding steady.
->
-> **Audio:** warm ambient showroom tone under an upbeat, confident background music bed
-> that builds to the end card. **Camera:** smooth, stabilized, no shake. **Transitions:**
-> clean quick cuts between shots. **Negative:** no distorted faces or hands, no warped
-> text or logos, no extra fingers, no changing outfit or car color, no flicker.
+> **Style:** consistent photorealistic advertising grade, smooth stabilized camera, shallow
+> depth of field, clean quick cuts. **Sound:** warm ambient showroom tone under an upbeat,
+> confident background-music bed that builds toward the end. **Constraints:** keep the same
+> woman, wardrobe and grey car in every shot; no distorted faces or hands, no warped text or
+> logos, no extra fingers, no outfit or car-color change, no flicker.
+
+*(~230 words of shot body — within the 150–250-word range for a timed multi-shot script.)*
 
 ---
 
-## 🔤 Post-production layer (add in your editor, not in Seedance)
+## 🔤 Post-production layer (add in your editor — do NOT bake into Seedance)
 
-Overlays and Hindi voiceover are burned in after generation so text stays crisp:
+Seedance warps on-screen text, so burn Hindi VO + offer badges + the brand end card in
+after generation. Timings map onto the 6 shots:
 
 | Time | On-screen graphic | Hindi VO |
 |------|-------------------|----------|
@@ -88,8 +98,24 @@ bottom contact bar `📍 Galaxy Honda · Jalandhar / Hoshiarpur · 📞 97810-97
 
 ---
 
-## Notes
-- If your Seedance run limits total duration below 25 s, split into two generations at
-  the Shot 5→6 boundary (dealer segment 0–14.5 s, hero+outro 14.5–25 s) and join in edit.
-- Feed the reference images in shot order; if the model supports per-shot reference
-  binding, bind each still to its matching shot for tighter consistency.
+## Why this structure (Seedance 2.5 best-practice basis)
+
+- **6-part formula** `subject + action + environment + camera + style + constraints`,
+  first 20–30 words lock the subject/character.
+- **Second-level timecodes** `[0:00–0:04]` per shot — the model is highly responsive to
+  them; each shot names its **shot size + camera move** and ends on `Hard cut`.
+- **≤6 shots** in a 25–30 s script (packing 4–6 shots keeps timecodes on beat; 9 was too
+  many, so the original keyframes were consolidated).
+- **`@Image` positional binding** — one reference per element that must stay consistent,
+  with the physical description repeated in the style line.
+- **One style line + one sound line** at the end; overlays/VO kept in post so text stays crisp.
+
+Once you share the official PDF, I'll diff this against it and adjust anything specific
+(exact tag syntax, negative-prompt field, per-shot reference limits).
+
+### Sources
+- BytePlus ModelArk — Dreamina Seedance 2.5 prompt guide: https://docs.byteplus.com/en/docs/ModelArk/2607689
+- BytePlus ModelArk — Seedance-1.5-pro prompt guide: https://docs.byteplus.com/en/docs/ModelArk/2168087
+- fal.ai — Seedance 2.5 prompting guide + real examples: https://fal.ai/learn/devs/seedance-2-5-prompting-guide
+- awesome-seedance-2.5-api-prompts (formula, timecode + @Image syntax): https://github.com/Anil-matcha/awesome-seedance-2.5-api-prompts
+- RunDiffusion — references, camera, story, sound: https://www.rundiffusion.com/seedance-2-5-prompt-guide
