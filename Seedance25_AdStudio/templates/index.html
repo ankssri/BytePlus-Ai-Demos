@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seedance 2.5 Ad Studio</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="dot"></span>
+      <h1>Seedance&nbsp;2.5 Ad Studio</h1>
+    </div>
+    <div id="configBadges" class="badges"></div>
+  </header>
+
+  <nav class="steps">
+    <button class="step active" data-step="1"><b>1</b> Load Script</button>
+    <button class="step" data-step="2"><b>2</b> Keyframes (Seedream)</button>
+    <button class="step" data-step="3"><b>3</b> Asset Library</button>
+    <button class="step" data-step="4"><b>4</b> Video (Seedance 2.5)</button>
+    <button class="step" data-step="5"><b>5</b> Assemble</button>
+  </nav>
+
+  <main>
+    <!-- STEP 1 -->
+    <section class="panel active" id="panel-1">
+      <h2>1 · Load the ad script</h2>
+      <p class="muted">Pick a bundled sample, or paste/upload your own two markdown files
+        (the <em>script</em> file with the voiceover + shot tables, and the
+        <em>keyframes</em> file with the image + motion prompts).</p>
+
+      <div class="row">
+        <label>Sample pair
+          <select id="sampleSelect"><option value="">— choose a sample —</option></select>
+        </label>
+        <button id="loadSampleBtn" class="btn ghost">Load sample</button>
+      </div>
+
+      <div class="grid2">
+        <label class="filelabel">Script markdown (voiceover + shots)
+          <textarea id="scriptMd" rows="10" placeholder="# Script … VO table + shot table"></textarea>
+          <input type="file" accept=".md,.markdown,.txt" data-target="scriptMd">
+        </label>
+        <label class="filelabel">Keyframes markdown (image + motion prompts)
+          <textarea id="keyframesMd" rows="10" placeholder="## A1 — … **Image prompt:** … **Seedance 2.5 motion:** …"></textarea>
+          <input type="file" accept=".md,.markdown,.txt" data-target="keyframesMd">
+        </label>
+      </div>
+
+      <button id="parseBtn" class="btn primary">Parse script →</button>
+      <div id="parseWarnings" class="warnings"></div>
+    </section>
+
+    <!-- STEP 2 -->
+    <section class="panel" id="panel-2">
+      <h2>2 · Generate keyframes with Seedream 5.0 pro</h2>
+      <p class="muted">Each shot below shows its start-frame prompt. Generate, then
+        <b>Regenerate</b> (new seed) or <b>Edit</b> (feed the frame back with an instruction)
+        until it looks right. Approve the ones you want to use.</p>
+      <div class="row">
+        <label>Image size <input id="imgSize" value="720x1280" size="10"></label>
+        <button id="genAllBtn" class="btn primary">Generate all pending</button>
+      </div>
+      <div id="shotCards" class="cards"></div>
+    </section>
+
+    <!-- STEP 3 -->
+    <section class="panel" id="panel-3">
+      <h2>3 · Upload approved keyframes to the Asset Library</h2>
+      <p class="muted">Seedance 2.5 reads references from the Asset Library. We register
+        each approved keyframe URL as an <code>Image</code> asset, then poll until it is ready.
+        The resulting <code>asset://&lt;id&gt;</code> is used as the video's first frame.</p>
+      <div class="row">
+        <label>Asset group id <input id="groupId" size="34"></label>
+        <button id="uploadAllBtn" class="btn primary">Upload all approved</button>
+      </div>
+      <div id="assetRows" class="assetlist"></div>
+    </section>
+
+    <!-- STEP 4 -->
+    <section class="panel" id="panel-4">
+      <h2>4 · Generate video with Seedance 2.5</h2>
+      <p class="muted">For each shot we create a first-frame image-to-video task. The shot's
+        dialogue is spoken (audio on) so the presenter lip-syncs the matched line.</p>
+      <div class="row">
+        <label>Resolution
+          <select id="vidRes"><option>720p</option><option>1080p</option><option>480p</option></select>
+        </label>
+        <label>Duration (s) <input id="vidDur" type="number" value="5" min="4" max="30" size="4"></label>
+        <label class="chk"><input type="checkbox" id="vidAudio" checked> Speak dialogue (audio)</label>
+        <button id="genVideoAllBtn" class="btn primary">Create all video tasks</button>
+      </div>
+      <div id="videoCards" class="cards"></div>
+    </section>
+
+    <!-- STEP 5 -->
+    <section class="panel" id="panel-5">
+      <h2>5 · Assemble the final ad</h2>
+      <p class="muted">Collect the per-shot clips in order. If <code>ffmpeg</code> is available
+        on the server, stitch them into one file; otherwise copy the concat command below.</p>
+      <button id="stitchBtn" class="btn primary">Stitch clips (server ffmpeg)</button>
+      <div id="assembleOut" class="assemble"></div>
+      <pre id="ffmpegCmd" class="cmd"></pre>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

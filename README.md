@@ -12,6 +12,7 @@ Sample code, demo applications for BytePlus LLM, Images, Video, VectorDB, AiAgen
 - **ModelComparison**: Tools for comparing different AI models
 - **News_InfoGraphicDemo**: News information graphics generator
 - **Seedance**: Video generation tools
+- **Seedance25_AdStudio**: Step-by-step app to turn an ad script (markdown) into a vertical ad video — Seedream 5.0 pro keyframes → Asset Library → Seedance 2.5 video
 - **Seededit**: Image editing tools
 - **Seedream**: Image generation tools
 - **VectorDB_Demos**: Vector database examples and applications

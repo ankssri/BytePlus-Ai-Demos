@@ -1,0 +1,16 @@
+# Secrets — never commit
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local outputs / scratch
+outputs/
+*.mp4
+*.mov
+.DS_Store
