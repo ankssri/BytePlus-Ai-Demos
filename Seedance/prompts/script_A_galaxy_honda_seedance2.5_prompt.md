@@ -41,38 +41,67 @@ the 8 keyframe stills as `@Image1…@Image8` in the order in the legend below.
 > `[0:00–0:04] MEDIUM SHOT, static eye-level` — Using `@Image2`, the presenter stands on
 > the paved forecourt outside the glass-fronted "Galaxy Honda" dealership under a clear
 > blue sky, one hand on her hip, the other opening in a warm welcoming gesture toward the
-> showroom, smiling at camera; gentle breeze in her hair. Hard cut.
+> showroom, smiling at camera; gentle breeze in her hair.
+> **VO (Hindi female voiceover):** "नई SUV खरीदने का सोच रहे हैं? तो इस बार चुनिए — Honda Elevate।"
+> Hard cut.
 >
 > `[0:04–0:09] WIDE SHOT, steadicam follow` — Using `@Image3`, she walks forward through
 > the glass entrance into a bright modern showroom, confident stride, gesturing openly at
 > the grey Honda Elevate and other Hondas on the polished reflective floor, warm smile;
-> camera dollies smoothly with her. Hard cut.
+> camera dollies smoothly with her.
+> **VO:** "और Galaxy Honda लाया है आपके लिए ज़बरदस्त ऑफर्स।"
+> Hard cut.
 >
 > `[0:09–0:14] MEDIUM SHOT, slow push in` — Using `@Image4` and `@Image5`, she stands
 > beside the front of the grey Honda Elevate, resting one hand near the hood then opening
 > it back toward camera, the "ELEVATE" badge and Honda grille clearly in frame, confident
-> smile; car static, headroom kept at top for a badge. Hard cut.
+> smile; car static, headroom kept at top for a badge.
+> **VO:** "₹2.45 लाख तक का cash discount। 7 साल की warranty — unlimited kilometres।"
+> Hard cut.
 >
 > `[0:14–0:18] WIDE TRACKING SHOT, no people` — Using `@Image6`, the grey Honda Elevate
 > drives toward camera on a scenic green mountain highway with a winding road, 3/4 front
 > angle, wheels rotating, trees and guardrail rushing past with motion blur, bright
-> daylight, a sense of speed and freedom. Hard cut.
+> daylight, a sense of speed and freedom.
+> **VO:** "ज़ीरो डाउन पेमेंट और सिर्फ़ 7.65% ब्याज़ दर। फिर देर किस बात की?"
+> Hard cut.
 >
 > `[0:18–0:22] MEDIUM-WIDE SHOT, static` — Using `@Image7`, back in the showroom she
 > stands beside the Honda Elevate and presents it with a smooth open-hand gesture and warm
-> smile, slight weight shift; space kept at top-left for a badge. Hard cut.
+> smile, slight weight shift; space kept at top-left for a badge.
+> **VO:** "आज ही Galaxy Honda आइए — और Elevate घर ले जाइए।"
+> Hard cut.
 >
 > `[0:22–0:25] CLOSE-UP, slow push in` — Using `@Image8`, a cinematic push-in on the Honda
 > Elevate front grille and LED headlights, chrome Honda logo and "ELEVATE" badge, glossy
 > grey paint, a subtle light glint travelling across the chrome, resolving on the emblem.
+> **VO:** none — background music only.
 >
 > **Style:** consistent photorealistic advertising grade, smooth stabilized camera, shallow
-> depth of field, clean quick cuts. **Sound:** warm ambient showroom tone under an upbeat,
-> confident background-music bed that builds toward the end. **Constraints:** keep the same
-> woman, wardrobe and grey car in every shot; no distorted faces or hands, no warped text or
-> logos, no extra fingers, no outfit or car-color change, no flicker.
+> depth of field, clean quick cuts. **Audio:** warm, upbeat Hindi female voiceover speaking
+> exactly the VO lines above at their timecodes, clear studio-quality diction, over an
+> upbeat confident background-music bed and light ambient showroom tone; music swells on the
+> final grille shot. Voiceover is narration (off-screen) — the presenter does not lip-sync.
+> **Constraints:** keep the same woman, wardrobe and grey car in every shot; VO must match
+> the Hindi lines verbatim; no distorted faces or hands, no warped text or logos, no extra
+> fingers, no outfit or car-color change, no flicker.
 
-*(~230 words of shot body — within the 150–250-word range for a timed multi-shot script.)*
+*(Shot body ~260 words. The Hindi VO is embedded per shot at second-level timecodes so
+Seedance generates native audio synced to each beat. Romanized reference for the VO is in
+the dialogue table below.)*
+
+---
+
+## 🎙️ Full Hindi voiceover (romanized reference for pronunciation)
+
+| Time | Devanagari | Romanized |
+|------|-----------|-----------|
+| 0:00–0:05 | नई SUV खरीदने का सोच रहे हैं? तो इस बार चुनिए — Honda Elevate। | Nayi SUV kharidne ka soch rahe hain? To is baar chuniye — Honda Elevate. |
+| 0:05–0:09 | और Galaxy Honda लाया है आपके लिए ज़बरदस्त ऑफर्स। | Aur Galaxy Honda laaya hai aapke liye zabardast offers. |
+| 0:09–0:14 | ₹2.45 लाख तक का cash discount। 7 साल की warranty — unlimited kilometres। | ₹2.45 lakh tak ka cash discount. 7 saal ki warranty — unlimited kilometres. |
+| 0:14–0:18 | ज़ीरो डाउन पेमेंट और सिर्फ़ 7.65% ब्याज़ दर। फिर देर किस बात की? | Zero down payment aur sirf 7.65% byaaj-dar. Phir der kis baat ki? |
+| 0:18–0:22 | आज ही Galaxy Honda आइए — और Elevate घर ले जाइए। | Aaj hi Galaxy Honda aaiye — aur Elevate ghar le jaaiye. |
+| 0:22–0:25 | *(music only)* | — |
 
 ---
 
