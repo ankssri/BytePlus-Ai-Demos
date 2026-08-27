@@ -1,0 +1,10 @@
+# Core runtime
+requests>=2.31
+python-dotenv>=1.0
+
+# Dataset generation (synthetic scenes + general images with exact ground truth)
+Pillow>=10.0
+numpy>=1.24
+
+# Interactive web UI
+streamlit>=1.30

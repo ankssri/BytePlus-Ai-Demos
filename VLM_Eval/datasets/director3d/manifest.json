@@ -1,0 +1,406 @@
+{
+  "name": "director3d-synthetic",
+  "description": "Synthetic 3D-staging scenes with exact ground truth.",
+  "items": [
+    {
+      "id": "s01_single_upright",
+      "task": "director3d",
+      "image": "images/s01_single_upright.png",
+      "tags": [
+        "single"
+      ],
+      "track": "synthetic",
+      "ground_truth": {
+        "image_width": 1024,
+        "image_height": 768,
+        "people": [
+          {
+            "id": "A",
+            "box": [
+              457,
+              267,
+              567,
+              505
+            ],
+            "orientation": "upright",
+            "facing": "toward",
+            "depth_rank": 0
+          }
+        ],
+        "light_direction": "left"
+      }
+    },
+    {
+      "id": "s02_single_upsidedown",
+      "task": "director3d",
+      "image": "images/s02_single_upsidedown.png",
+      "tags": [
+        "single",
+        "upside_down"
+      ],
+      "track": "synthetic",
+      "ground_truth": {
+        "image_width": 1024,
+        "image_height": 768,
+        "people": [
+          {
+            "id": "A",
+            "box": [
+              457,
+              259,
+              567,
+              497
+            ],
+            "orientation": "upside_down",
+            "facing": "toward",
+            "depth_rank": 0
+          }
+        ],
+        "light_direction": "right"
+      }
+    },
+    {
+      "id": "s03_single_sideways",
+      "task": "director3d",
+      "image": "images/s03_single_sideways.png",
+      "tags": [
+        "single",
+        "sideways"
+      ],
+      "track": "synthetic",
+      "ground_truth": {
+        "image_width": 1024,
+        "image_height": 768,
+        "people": [
+          {
+            "id": "A",
+            "box": [
+              395,
+              329,
+              633,
+              439
+            ],
+            "orientation": "left",
+            "facing": "left",
+            "depth_rank": 0
+          }
+        ],
+        "light_direction": "top"
+      }
+    },
+    {
+      "id": "s04_two_depth",
+      "task": "director3d",
+      "image": "images/s04_two_depth.png",
+      "tags": [
+        "multi",
+        "depth"
+      ],
+      "track": "synthetic",
+      "ground_truth": {
+        "image_width": 1024,
+        "image_height": 768,
+        "people": [
+          {
+            "id": "B",
+            "box": [
+              620,
+              276,
+              700,
+              448
+            ],
+            "orientation": "upright",
+            "facing": "toward",
+            "depth_rank": 1
+          },
+          {
+            "id": "A",
+            "box": [
+              315,
+              291,
+              445,
+              573
+            ],
+            "orientation": "upright",
+            "facing": "toward",
+            "depth_rank": 0
+          }
+        ],
+        "light_direction": "left"
+      }
+    },
+    {
+      "id": "s05_two_leftright",
+      "task": "director3d",
+      "image": "images/s05_two_leftright.png",
+      "tags": [
+        "multi",
+        "leftright"
+      ],
+      "track": "synthetic",
+      "ground_truth": {
+        "image_width": 1024,
+        "image_height": 768,
+        "people": [
+          {
+            "id": "A",
+            "box": [
+              245,
+              283,
+              355,
+              521
+            ],
+            "orientation": "upright",
+            "facing": "right",
+            "depth_rank": 0
+          },
+          {
+            "id": "B",
+            "box": [
+              665,
+              283,
+              775,
+              521
+            ],
+            "orientation": "upright",
+            "facing": "left",
+            "depth_rank": 0
+          }
+        ],
+        "light_direction": "right"
+      }
+    },
+    {
+      "id": "s06_three_mixed",
+      "task": "director3d",
+      "image": "images/s06_three_mixed.png",
+      "tags": [
+        "multi",
+        "depth",
+        "crowd"
+      ],
+      "track": "synthetic",
+      "ground_truth": {
+        "image_width": 1024,
+        "image_height": 768,
+        "people": [
+          {
+            "id": "C",
+            "box": [
+              721,
+              259,
+              799,
+              426
+            ],
+            "orientation": "upright",
+            "facing": "away",
+            "depth_rank": 2
+          },
+          {
+            "id": "B",
+            "box": [
+              470,
+              274,
+              570,
+              490
+            ],
+            "orientation": "upright",
+            "facing": "left",
+            "depth_rank": 1
+          },
+          {
+            "id": "A",
+            "box": [
+              195,
+              301,
+              325,
+              583
+            ],
+            "orientation": "upright",
+            "facing": "toward",
+            "depth_rank": 0
+          }
+        ],
+        "light_direction": "top"
+      }
+    },
+    {
+      "id": "s07_two_one_inverted",
+      "task": "director3d",
+      "image": "images/s07_two_one_inverted.png",
+      "tags": [
+        "multi",
+        "upside_down",
+        "depth"
+      ],
+      "track": "synthetic",
+      "ground_truth": {
+        "image_width": 1024,
+        "image_height": 768,
+        "people": [
+          {
+            "id": "B",
+            "box": [
+              633,
+              276,
+              728,
+              481
+            ],
+            "orientation": "upside_down",
+            "facing": "toward",
+            "depth_rank": 1
+          },
+          {
+            "id": "A",
+            "box": [
+              300,
+              272,
+              420,
+              532
+            ],
+            "orientation": "upright",
+            "facing": "toward",
+            "depth_rank": 0
+          }
+        ],
+        "light_direction": "left"
+      }
+    },
+    {
+      "id": "s08_four_crowd",
+      "task": "director3d",
+      "image": "images/s08_four_crowd.png",
+      "tags": [
+        "multi",
+        "crowd",
+        "depth"
+      ],
+      "track": "synthetic",
+      "ground_truth": {
+        "image_width": 1024,
+        "image_height": 768,
+        "people": [
+          {
+            "id": "D",
+            "box": [
+              785,
+              267,
+              855,
+              417
+            ],
+            "orientation": "upright",
+            "facing": "left",
+            "depth_rank": 3
+          },
+          {
+            "id": "C",
+            "box": [
+              598,
+              282,
+              682,
+              462
+            ],
+            "orientation": "upright",
+            "facing": "toward",
+            "depth_rank": 2
+          },
+          {
+            "id": "B",
+            "box": [
+              390,
+              304,
+              490,
+              520
+            ],
+            "orientation": "upright",
+            "facing": "toward",
+            "depth_rank": 1
+          },
+          {
+            "id": "A",
+            "box": [
+              160,
+              322,
+              280,
+              582
+            ],
+            "orientation": "upright",
+            "facing": "right",
+            "depth_rank": 0
+          }
+        ],
+        "light_direction": "right"
+      }
+    },
+    {
+      "id": "s09_occlusion",
+      "task": "director3d",
+      "image": "images/s09_occlusion.png",
+      "tags": [
+        "multi",
+        "occlusion",
+        "depth"
+      ],
+      "track": "synthetic",
+      "ground_truth": {
+        "image_width": 1024,
+        "image_height": 768,
+        "people": [
+          {
+            "id": "B",
+            "box": [
+              505,
+              293,
+              615,
+              531
+            ],
+            "orientation": "upright",
+            "facing": "toward",
+            "depth_rank": 1
+          },
+          {
+            "id": "A",
+            "box": [
+              400,
+              280,
+              540,
+              584
+            ],
+            "orientation": "upright",
+            "facing": "toward",
+            "depth_rank": 0
+          }
+        ],
+        "light_direction": "left"
+      }
+    },
+    {
+      "id": "s10_single_highcam",
+      "task": "director3d",
+      "image": "images/s10_single_highcam.png",
+      "tags": [
+        "single"
+      ],
+      "track": "synthetic",
+      "ground_truth": {
+        "image_width": 1024,
+        "image_height": 768,
+        "people": [
+          {
+            "id": "A",
+            "box": [
+              462,
+              324,
+              562,
+              540
+            ],
+            "orientation": "upright",
+            "facing": "away",
+            "depth_rank": 0
+          }
+        ],
+        "light_direction": "bottom"
+      }
+    }
+  ]
+}

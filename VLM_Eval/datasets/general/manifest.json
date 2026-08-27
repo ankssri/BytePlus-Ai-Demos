@@ -1,0 +1,96 @@
+{
+  "name": "general-vlm",
+  "description": "Small general VLM suite with exact answers + one judged caption.",
+  "items": [
+    {
+      "id": "g01_ocr_sign",
+      "task": "vqa_keyword",
+      "image": "images/g01_ocr_sign.png",
+      "tags": [
+        "ocr"
+      ],
+      "track": "synthetic",
+      "answer": [
+        "gate 12 closed"
+      ],
+      "meta": {
+        "question": "What exact text is written on the sign?"
+      }
+    },
+    {
+      "id": "g02_count",
+      "task": "vqa_numeric",
+      "image": "images/g02_count.png",
+      "tags": [
+        "counting"
+      ],
+      "track": "synthetic",
+      "answer": 7,
+      "meta": {
+        "question": "How many red circles are in the image?",
+        "tolerance": 0
+      }
+    },
+    {
+      "id": "g03_barchart",
+      "task": "vqa_keyword",
+      "image": "images/g03_barchart.png",
+      "tags": [
+        "chart"
+      ],
+      "track": "synthetic",
+      "answer": [
+        "d"
+      ],
+      "meta": {
+        "question": "Which labelled bar (A-E) is the tallest? Answer with the letter."
+      }
+    },
+    {
+      "id": "g04_table",
+      "task": "vqa_keyword",
+      "image": "images/g04_table.png",
+      "tags": [
+        "table",
+        "ocr"
+      ],
+      "track": "synthetic",
+      "answer": [
+        "9800000",
+        "9,800,000"
+      ],
+      "meta": {
+        "question": "According to the table, what is the population of Lima?"
+      }
+    },
+    {
+      "id": "g05_spatial",
+      "task": "vqa_keyword",
+      "image": "images/g05_spatial.png",
+      "tags": [
+        "spatial",
+        "color"
+      ],
+      "track": "synthetic",
+      "answer": [
+        "blue"
+      ],
+      "meta": {
+        "question": "What colour is the shape on the LEFT side of the image?"
+      }
+    },
+    {
+      "id": "g06_scene",
+      "task": "open_ended",
+      "image": "images/g06_scene.png",
+      "tags": [
+        "caption"
+      ],
+      "track": "synthetic",
+      "answer": "A simple daytime outdoor scene: a house with a red/dark triangular roof and a door, on green grass, under a blue sky with a yellow sun.",
+      "meta": {
+        "question": "Describe this image in one or two sentences."
+      }
+    }
+  ]
+}
