@@ -157,7 +157,7 @@ audio → export/A-B**. Feature status against that superset:
 | Per-shot model routing (InVideo, Freepik) | differentiator | N/A — single video model (Seedance 2.5) |
 | Batch variation matrix / CSV A-B (Arcads, Creatify Batch) | differentiator | Roadmap — reuse Brand Kit, generate N hook variants |
 | One-click aspect-ratio variants from one master (most) | table-stakes | Roadmap |
-| Auto-captions/subtitles burn-in + music bed (InVideo) | table-stakes | Partial — overlay plan lists them; needs ffmpeg/PIL compositor (`overlays.py`) |
+| Auto-captions/subtitles burn-in + brand overlays (InVideo, AdCreative) | table-stakes | **Built** — `overlays.py` burns logo + contact + ₹/number badges + Hindi (Devanagari, properly shaped) captions via Pillow+raqm & bundled ffmpeg; music bed still manual |
 | Performance scoring / direct publish to ad platforms (AdCreative, Creatify) | differentiator | Out of scope |
 | Product-URL ingestion → auto brief (Higgsfield, Creatify) | table-stakes | Roadmap — scrape page → prefill brief |
 

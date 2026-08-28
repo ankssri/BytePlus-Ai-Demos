@@ -471,8 +471,35 @@ function renderOverlayPlan() {
   const ov = (state.plan && state.plan.overlay_text) || [];
   $("#overlayPlan").innerHTML = ov.length ? ov.map(o => `<div class="assetrow"><div class="grow">
     <b>${esc(o.text)}</b> <span class="status">${esc(o.position)}</span> <span class="muted">${o.t_start}–${o.t_end}s</span></div></div>`).join("")
-    : `<p class="muted">No overlay text in the plan. Composite logo, contact bar, Hindi/number badges and captions in your editor.</p>`;
+    : `<p class="muted">No overlay text in the plan — only Hindi VO captions (if enabled) will be burned.</p>`;
+  // Preflight the compositor so the user knows before clicking.
+  api("/api/overlay-preflight").then(d => {
+    $("#ovWarn").innerHTML = d.ok ? "" : `<div>⚠ Overlay tools not ready: ${esc(d.message)}. Run <code>pip install imageio-ffmpeg Pillow</code>.</div>`;
+  }).catch(() => {});
 }
+// Map aspect + resolution to pixel dimensions for the compositor.
+function videoDims() {
+  const aspect = (state.plan && state.plan.aspect) || $("#aspect").value || "9:16";
+  const res = $("#res").value || "720p";
+  const shortSide = res === "1080p" ? 1080 : res === "480p" ? 480 : 720;
+  if (aspect === "1:1") return { w: shortSide, h: shortSide };
+  if (aspect === "16:9") return { w: Math.round(shortSide * 16 / 9), h: shortSide };
+  return { w: shortSide, h: Math.round(shortSide * 16 / 9) };   // 9:16 default
+}
+$("#renderOverlaysBtn").addEventListener("click", async () => {
+  if (!state.videoUrl) return toast("Generate the ad first (step 5)", true);
+  const logo = $("#ovLogo").checked ? (state.refs.find(r => r.role === "Logo") || {}).url : null;
+  const { w, h } = videoDims();
+  $("#ovStatus").textContent = "rendering…"; $("#ovStatus").className = "status run";
+  try {
+    const d = await api("/api/render-overlays", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ video_url: state.videoUrl, plan: state.plan, captions: $("#ovCaptions").checked,
+        logo_url: logo, width: w, height: h }) });
+    $("#ovStatus").textContent = `done (${d.overlay_count} overlays)`; $("#ovStatus").className = "status ok";
+    $("#ovOut").innerHTML = `<video src="${esc(d.video_url)}" controls></video>
+      <div><a href="${esc(d.video_url)}" download>⬇ Download branded MP4</a></div>`;
+  } catch (e) { $("#ovStatus").textContent = "error"; $("#ovStatus").className = "status err"; toast(e.message, true); }
+});
 
 // boot
 loadConfig().catch(e => toast(e.message, true));

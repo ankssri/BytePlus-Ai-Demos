@@ -181,7 +181,21 @@
         <span id="editStatus" class="status"></span>
       </div>
       <div id="editOut" class="media-lg"></div>
-      <h3 style="margin-top:20px">Post overlays (composite in your editor)</h3>
+
+      <h3 style="margin-top:22px">Brand overlays — burn them onto the video</h3>
+      <p class="muted">The logo, contact bar, ₹/number badges and <b>Hindi (Devanagari) captions</b>
+        are composited on top of the finished video here (in-model text — especially Hindi — is
+        unreliable, so it's added in post). This renders a downloadable MP4.</p>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="ovCaptions" checked> Burn Hindi VO captions</label>
+        <label class="chk"><input type="checkbox" id="ovLogo" checked> Overlay the Logo reference (if added)</label>
+        <button id="renderOverlaysBtn" class="btn primary">Render overlays →</button>
+        <span id="ovStatus" class="status"></span>
+      </div>
+      <div id="ovWarn" class="warnings"></div>
+      <div id="ovOut" class="media-lg"></div>
+
+      <h3 style="margin-top:20px">Overlay plan (what will be burned)</h3>
       <div id="overlayPlan" class="assetlist"></div>
     </section>
   </main>

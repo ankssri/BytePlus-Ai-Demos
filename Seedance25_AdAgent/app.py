@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
 
 from byteplus import assets, config as C, llm, seedance, seedream, tts
+import overlays
 
 load_dotenv(override=True)
 
@@ -218,6 +219,30 @@ def api_extend_video():
         return jsonify({"error": "video_url and instruction required"}), 400
     result, status = seedance.extend(b["video_url"].strip(), b["instruction"].strip(),
                                      generate_audio=bool(b.get("generate_audio", True)))
+    return jsonify(result), status
+
+
+# ── Stage 6: post-production overlay compositor ──────────────────────────────
+@app.route("/api/overlay-preflight")
+def api_overlay_preflight():
+    ok, msg = overlays.preflight()
+    return jsonify({"ok": ok, "message": msg}), (200 if ok else 200)
+
+
+@app.route("/api/render-overlays", methods=["POST"])
+def api_render_overlays():
+    """Burn the plan's overlay text (logo, contact, ₹/number badges) and optional
+    Hindi captions onto the generated video. Returns a served video_url."""
+    b = request.json or {}
+    video_url = (b.get("video_url") or "").strip()
+    if not video_url:
+        return jsonify({"error": "video_url is required"}), 400
+    plan = b.get("plan") or {}
+    items = b.get("items") or overlays.build_items_from_plan(plan, captions=bool(b.get("captions", True)))
+    result, status = overlays.compose(
+        video_url, items,
+        width=int(b.get("width") or 720), height=int(b.get("height") or 1280),
+        logo_src=(b.get("logo_url") or None))
     return jsonify(result), status
 
 
