@@ -101,12 +101,16 @@
     <!-- STEP 4 STORYBOARD -->
     <section class="panel" id="panel-4">
       <h2>4 · Storyboard preview (approval gate)</h2>
-      <p class="muted">Generate a few Seedream frames (open / hero / CTA) as a visual preview of the ad.
-        On each frame you can <b>↻ Regenerate</b> (new variation), <b>✎ Edit</b> (type a fix like "remove the
-        second car" — it feeds the frame back to Seedream), and <b>Approve &amp; anchor</b>.
-        <b>"Approved (anchored)"</b> means that frame is passed into the Seedance video generation as a
-        reference image, so the final video keeps that exact person and composition. Un-approved frames are ignored.</p>
-      <button id="genStoryBtn" class="btn primary">Generate storyboard frames</button>
+      <p class="muted">One card per beat. Each shows an <b>editable keyframe prompt</b> (a clean still —
+        no on-screen text, icons or motion; those are added later). <b>Nothing generates automatically</b> —
+        edit a prompt, then <b>Generate</b> that frame (or <b>Generate all</b>). Then <b>✎ Edit image</b>
+        (type a fix like "remove the second car"), <b>↻ Regenerate</b>, and <b>Approve &amp; anchor</b>.
+        <b>"Approved (anchored)"</b> = that frame is passed into the Seedance video as a reference so the
+        final video keeps that exact person and composition. Un-approved frames are ignored.</p>
+      <div class="row">
+        <button id="genStoryBtn" class="btn primary">Generate all pending</button>
+        <button id="resetStoryBtn" class="btn small">↻ Reload prompts from plan</button>
+      </div>
       <div id="storyCards" class="cards"></div>
       <div class="stepnav">
         <button class="btn" data-goto="3">← Back</button>

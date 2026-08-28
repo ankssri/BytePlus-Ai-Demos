@@ -24,6 +24,7 @@ document.addEventListener("click", e => { const b = e.target.closest("[data-goto
 function goStep(n) {
   $$(".step").forEach(b => b.classList.toggle("active", +b.dataset.step === n));
   $$(".panel").forEach(p => p.classList.toggle("active", p.id === `panel-${n}`));
+  if (n === 4) renderStoryboard();
   if (n === 5) renderGenerate();
   if (n === 6) renderOverlayPlan();
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -66,6 +67,7 @@ $("#skipPlanBtn").addEventListener("click", () => goStep(2));
 // STEP 2 plan
 function setPlan(plan) {
   state.plan = plan;
+  state.story = [];   // rebuild storyboard from the new plan on next visit
   $("#planJson").value = JSON.stringify(plan, null, 2);
   $("#directorBrief").value = plan.director_brief || "";
   renderPlanView();
@@ -171,41 +173,39 @@ $("#voUpload").addEventListener("change", async e => {
   $("#voStatus").textContent = "VO uploaded"; $("#voStatus").className = "status ok"; toast("VO audio set");
 });
 
-// STEP 4 storyboard
-$("#genStoryBtn").addEventListener("click", async () => {
-  const scenes = (state.plan && state.plan.scenes) || [];
-  if (!scenes.length) return toast("No plan scenes — do step 2 first", true);
-  const pick = [scenes[0], scenes[Math.floor(scenes.length / 2)], scenes[scenes.length - 1]].filter(Boolean);
-  // Anchor: use a Brand-Kit reference if present; otherwise the first generated frame.
-  state.storyAnchor = state.refs[0] ? state.refs[0].url : null;
-  state.story = pick.map((s, i) => ({ label: ["Open", "Hero", "CTA"][i] || ("F" + i), scene: s, url: "", approved: false, seed: null }));
-  renderStory();
-  for (let i = 0; i < state.story.length; i++) {
-    await storyGenerate(i);
-    if (!state.storyAnchor && state.story[i].url) state.storyAnchor = state.story[i].url;  // chain
-  }
-  toast("Storyboard ready — Regenerate / Edit any frame, then Approve the good ones");
-});
+// STEP 4 storyboard — one editable card per scene; nothing generates until you ask.
+const SAFETY_SUFFIX = " Exactly one vehicle in frame; no floating icons, holograms, shields, "
+  + "UI graphics, badges or on-screen text; photorealistic advertising still, vertical 9:16.";
 
-// Seedream 6-part composition + a single-product constraint (kills duplicate-car
-// style hallucinations) + identity lock to the anchor.
+function initStoryboard() {
+  const scenes = (state.plan && state.plan.scenes) || [];
+  state.storyAnchor = state.refs[0] ? state.refs[0].url : null;
+  state.story = scenes.map((s, i) => ({
+    label: `Beat ${s.index || i + 1} · ${s.t_start ?? "?"}–${s.t_end ?? "?"}s`,
+    scene: s,
+    prompt: (s.keyframe_prompt || composeStoryPrompt(s, !!state.storyAnchor)),
+    url: "", approved: false, seed: null, _st: "",
+  }));
+  renderStory();
+}
+function renderStoryboard() { if (!state.story.length) initStoryboard(); }
+
+// Fallback composer if the plan lacks a keyframe_prompt (older plans).
 function composeStoryPrompt(scene, hasAnchor) {
   const product = (state.plan && state.plan.product) || "the product";
-  const quality = "high quality, ultra-fine, 2K, photorealistic";
-  const subject = (hasAnchor ? "Keep the EXACT same person (identical face, hair, outfit) as in the reference image. " : "")
-    + (scene.action || "");
-  const constraint = `Show exactly ONE ${product} — a single vehicle only, no duplicate or extra cars in the frame.`;
-  const shot = scene.camera ? `${scene.camera}. Vertical 9:16 mobile framing.` : "Vertical 9:16 mobile framing.";
-  const style = "cinematic advertising still, clean composition";
-  const light = "natural realistic lighting";
-  return [quality, subject, constraint, shot, style, light].filter(Boolean).join(". ");
+  const subject = (hasAnchor ? "the same person as in the reference image, " : "a friendly presenter, ")
+    + `standing with a single ${product}`;
+  return `high quality, ultra-fine, 2K, photorealistic. ${subject}. ${scene.camera || "vertical 9:16 framing"}. `
+    + "bright modern showroom, cinematic advertising still, natural lighting";
 }
 async function storyGenerate(i, opts = {}) {
   const s = state.story[i];
-  const anchor = opts.editImage ? opts.editImage : state.storyAnchor;   // edit feeds current frame back
+  // Honor the user's edited prompt from the textarea.
+  const ta = $(`#sp-${i}`); if (ta && !opts.editInstruction) s.prompt = ta.value.trim();
+  const anchor = opts.editImage ? opts.editImage : state.storyAnchor;
   const prompt = opts.editInstruction
-    ? `${opts.editInstruction}. Keep the same person and overall scene; only apply this change. Photorealistic, vertical 9:16.`
-    : (s.prompt || (s.prompt = composeStoryPrompt(s.scene, !!state.storyAnchor)));
+    ? `${opts.editInstruction}. Keep the same person and the same scene; only apply this change. Photorealistic, vertical 9:16.`
+    : (s.prompt + SAFETY_SUFFIX);
   const seed = opts.newSeed ? Math.floor(Math.random() * 2147483000) : (s.seed ?? undefined);
   s.seed = seed;
   setStory(i, opts.editInstruction ? "editing…" : "generating…", "run");
@@ -214,6 +214,7 @@ async function storyGenerate(i, opts = {}) {
       body: JSON.stringify({ prompt, size: "2K", image: anchor, seed, optimize_prompt: false }) });
     s.url = d.url; s.approved = false; renderStory();
     setStory(i, opts.editInstruction ? "edited" : "generated", "ok");
+    if (!state.storyAnchor && s.url) state.storyAnchor = s.url;  // first frame becomes identity anchor
   } catch (e) { setStory(i, "error", "err"); toast(`${s.label}: ${e.message}`, true); }
 }
 function renderStory() {
@@ -221,26 +222,37 @@ function renderStory() {
   state.story.forEach((s, i) => {
     const c = el("div", "card" + (s.approved ? " approved" : ""));
     c.innerHTML = `<div class="head"><b>${esc(s.label)}</b><span class="status" id="ss-${i}">${esc(s._st || "")}</span></div>
-      <div class="media">${s.url ? `<img src="${esc(s.url)}">` : "…"}</div>
+      <div class="media">${s.url ? `<img src="${esc(s.url)}">` : "not generated yet"}</div>
       <div class="body">
+        <label style="color:var(--muted);font-size:12px">Keyframe prompt (edit before generating)
+          <textarea id="sp-${i}" rows="4">${esc(s.prompt)}</textarea>
+        </label>
         <div class="actions">
-          <button class="btn small" data-act="regen" data-i="${i}">↻ Regenerate</button>
-          <button class="btn small" data-act="edit" data-i="${i}">✎ Edit</button>
-          <button class="btn primary small" data-act="approve" data-i="${i}">${s.approved ? "✓ Approved (anchored)" : "Approve & anchor"}</button>
+          <button class="btn primary small" data-act="gen" data-i="${i}">${s.url ? "↻ Regenerate" : "Generate"}</button>
+          <button class="btn small" data-act="edit" data-i="${i}" ${s.url ? "" : "disabled"}>✎ Edit image</button>
+          <button class="btn small" data-act="approve" data-i="${i}" ${s.url ? "" : "disabled"}>${s.approved ? "✓ Approved (anchored)" : "Approve & anchor"}</button>
         </div>
       </div>`;
     $("#storyCards").appendChild(c);
   });
 }
 function setStory(i, t, c) { if (state.story[i]) state.story[i]._st = t; const e = $(`#ss-${i}`); if (e) { e.textContent = t; e.className = "status " + (c || ""); } }
+$("#genStoryBtn").addEventListener("click", async () => {
+  if (!state.story.length) initStoryboard();
+  const pending = state.story.map((s, i) => i).filter(i => !state.story[i].url);
+  if (!pending.length) return toast("All frames generated — use Regenerate on a card to redo one");
+  for (const i of pending) await storyGenerate(i);
+  toast("Done — Edit/Regenerate any frame, then Approve the ones to anchor");
+});
+$("#resetStoryBtn").addEventListener("click", () => { initStoryboard(); toast("Reloaded prompts from the plan"); });
 $("#storyCards").addEventListener("click", async e => {
   const b = e.target.closest("[data-act]"); if (!b) return;
   const i = +b.dataset.i, act = b.dataset.act, s = state.story[i];
+  if (act === "gen") return storyGenerate(i, { newSeed: !!s.url });
   if (act === "approve") { if (!s.url) return toast("Generate this frame first", true); s.approved = !s.approved; renderStory(); return; }
-  if (act === "regen") return storyGenerate(i, { newSeed: true });
   if (act === "edit") {
     if (!s.url) return toast("Generate this frame first, then edit", true);
-    const instr = window.prompt(`Edit instruction for the ${s.label} frame\n(e.g. "remove the second car", "make the car dark grey", "fix the left hand")`);
+    const instr = window.prompt(`Edit instruction for ${s.label}\n(e.g. "remove the second car", "make the car dark grey", "fix the left hand")`);
     if (instr) storyGenerate(i, { editInstruction: instr, editImage: s.url });
   }
 });

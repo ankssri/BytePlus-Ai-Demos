@@ -24,13 +24,20 @@ AD_PLAN_SCHEMA = {
                     "index": {"type": "integer", "description": "1-based beat order"},
                     "t_start": {"type": "number", "description": "Beat start time in seconds"},
                     "t_end": {"type": "number", "description": "Beat end time in seconds"},
-                    "action": {"type": "string", "description": "What happens visually: subject, camera, setting, motion"},
+                    "action": {"type": "string", "description": "What happens in the VIDEO for this beat: subject, camera, motion, cuts, effects"},
                     "camera": {"type": "string", "description": "Camera framing/movement, e.g. 'medium tracking'"},
+                    "keyframe_prompt": {"type": "string", "description": (
+                        "A CLEAN still-image prompt for Seedream (the storyboard frame for this beat). "
+                        "Describe ONLY a single photographic still: the presenter (identity from the "
+                        "reference), the product, the setting and framing, in Seedream's 6-part style. "
+                        "MUST NOT include any camera cuts/transitions, motion, floating icons/holograms/UI/"
+                        "graphic props, on-screen text, badges, or Hindi text (those are added later). "
+                        "Exactly one vehicle in frame.")},
                     "vo_hindi": {"type": "string", "description": "Voiceover line in Hindi (Devanagari), '' if none"},
                     "vo_english": {"type": "string", "description": "English meaning of the VO line, '' if none"},
                     "on_screen_text": {"type": "string", "description": "Short badge text for this beat (English/number only), '' if none"}
                 },
-                "required": ["index", "t_start", "t_end", "action", "camera",
+                "required": ["index", "t_start", "t_end", "action", "camera", "keyframe_prompt",
                              "vo_hindi", "vo_english", "on_screen_text"]
             }
         },
