@@ -24,10 +24,11 @@ middle = clear product demo; end = explicit CTA. Cut every 2-3 seconds.
 
 SEEDANCE 2.5 director_brief STRUCTURE (write it exactly like this):
 1) One-sentence summary: Subject + Location + Event + Style + Camera.
-2) Asset bindings: refer to references by upload order as @Image 1, @Image 2,
-   @Audio 1 ... and bind each in text. Use these placeholders that the app maps to
-   real assets, in this order when present: @Image 1 = the presenter (keep identity),
-   then product/logo/style images, then @Audio 1 = the voiceover.
+2) Asset bindings (Seedream/Seedance convention): cite references INLINE in natural
+   language as @image1, @image2, @audio1 … each with an explicit match instruction, e.g.
+   "the presenter from @image1; face and build match @image1 exactly", "the exact product
+   from @image2, its design/colour/materials unchanged", "@audio1 = the voiceover, lip-sync
+   to it". Order when present: @image1 = presenter, then product/logo/style, then @audio1.
 3) Detailed plot on a continuous integer-second timeline with NO gaps
    (e.g. 0-3s ... 3-6s ...), ~2-3s per beat. Each beat: visuals, camera movement,
    action, dialogue in double quotes, sound. Tag lines with roles like [Subject],
@@ -80,18 +81,19 @@ def generate_ad_plan(brief, duration=20, aspect="9:16", language="Hindi + Englis
         f"{_text_rule(model_text)}\n"
         "Write 3-6 scenes on a single timeline following Hook + Product + CTA, and a "
         "director_brief in the Seedance 2.5 structure above (one-sentence summary, asset "
-        "bindings with @Image/@Audio placeholders, tagged timestamped beats with dialogue "
-        "in double quotes).\n"
+        "bindings citing @image1/@audio1 inline with match instructions, tagged timestamped "
+        "beats with dialogue in double quotes).\n"
         "Also fill the top-level 'presenter' field with a concise physical description of the "
         "on-screen presenter (age, gender, look, wardrobe).\n"
         "IMPORTANT — keyframe_prompt for each scene: this is a CLEAN photographic STILL for the "
-        "Seedream storyboard, NOT the video. Refer to the person ONLY as 'the presenter' — do NOT "
-        "describe their face/hair/age/ethnicity/build/wardrobe in keyframe_prompt (identity comes "
-        "from the reference image or the presenter field). Describe ONLY the presenter's pose/action, "
-        "the product, environment, camera framing and lighting, in Seedream's 6-part style. Do NOT "
-        "include camera cuts, transitions, motion, floating icons, holograms, shields, calculators, "
-        "graphic props, UI elements, badges, on-screen text or Hindi text. Show exactly ONE "
-        "product/vehicle."
+        "Seedream storyboard, NOT the video. Refer to the person ONLY as 'the presenter' and to the "
+        "product ONLY generically (e.g. 'the product', 'the shoe', 'the car') — do NOT describe the "
+        "presenter's face/hair/age/ethnicity/build/wardrobe, and do NOT invent the product's brand, "
+        "colour, model or markings (identity AND product appearance come from the reference images the "
+        "app binds as @image1, @image2). Describe ONLY: the presenter's pose/action, how the product is "
+        "shown, the environment, camera framing and lighting, in Seedream's 6-part style. Do NOT include "
+        "camera cuts, transitions, motion, floating icons, holograms, shields, calculators, graphic "
+        "props, UI elements, badges, on-screen text or Hindi text. Show exactly ONE product/vehicle."
     )
     return _chat_schema(mid, SYSTEM, user)
 
@@ -109,7 +111,7 @@ def optimize_seedance_prompt(prompt, duration=20, aspect="9:16", model_id=None):
            + PROMPT_RULES +
            " Output ONLY the rewritten prompt text, no preamble.")
     user = (f"Rewrite this into an optimized Seedance 2.5 prompt for a {duration}s, {aspect} ad. "
-            f"Keep any @Image/@Audio bindings and spoken lines.\n\nPROMPT:\n{prompt}")
+            f"Keep any @image/@audio bindings and spoken lines.\n\nPROMPT:\n{prompt}")
     payload = {"model": mid, "messages": [{"role": "system", "content": sys},
                                           {"role": "user", "content": user}],
                "thinking": {"type": "disabled"}}

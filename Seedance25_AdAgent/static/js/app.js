@@ -118,15 +118,24 @@ function renderPlanView() {
 
 // STEP 3 brand kit — typed, multi-reference
 function refRoleColor(role) { return role === "Presenter" ? "run" : role === "Product" ? "ok" : ""; }
+const ROLES = ["Presenter", "Product", "Logo", "Style", "Other"];
+function roleOptions(sel) { return ROLES.map(r => `<option ${r === sel ? "selected" : ""}>${r}</option>`).join(""); }
 function renderRefs() {
   $("#refList").innerHTML = state.refs.map((r, i) => `<div class="assetrow">
     <img src="${esc(r.url)}"><div class="grow"><b>${esc(r.name)}</b>
       <span class="status ${refRoleColor(r.role)}">${esc(r.role || "Other")}</span>
       <div><code>${r.ref && r.ref.startsWith("asset://") ? esc(r.ref) : "(inline image)"}</code></div></div>
+    <label style="flex-direction:row;align-items:center;gap:6px">role
+      <select data-refrole="${i}">${roleOptions(r.role || "Other")}</select></label>
     <button class="btn small" data-rmref="${i}">remove</button></div>`).join("")
     || `<p class="muted">No references yet. Add at least a <b>Presenter</b> and a <b>Product</b>.</p>`;
 }
 $("#refList").addEventListener("click", e => { const b = e.target.closest("[data-rmref]"); if (b) { state.refs.splice(+b.dataset.rmref, 1); state.story = []; renderRefs(); } });
+$("#refList").addEventListener("change", e => {
+  const s = e.target.closest("[data-refrole]"); if (!s) return;
+  state.refs[+s.dataset.refrole].role = s.value; state.story = [];   // rebuild storyboard bindings
+  renderRefs(); toast("Role updated — storyboard references refreshed");
+});
 
 function addRef(obj) { state.refs.push(obj); state.story = []; renderRefs(); }   // reset story so chips refresh
 
@@ -297,14 +306,28 @@ function composeStoryPrompt(scene) {
     + `${scene.camera || "vertical 9:16 framing"}. bright modern setting, cinematic advertising still, natural lighting`;
 }
 
-// Human phrasing bound to each reference role for the @Image N preamble.
+// Seedream 5.0 pro reference convention (from the official samples): references are
+// cited INLINE as @image1, @image2… in natural language, each with a role-appropriate
+// "match exactly / unchanged" instruction. `tags` is like "@image1" or "@image1 and @image2".
+function refClause(role, tags, product) {
+  if (role === "Presenter")
+    return `The presenter is the person from ${tags}; their face, identity, skin tone, hair, build and proportions must match ${tags} exactly`;
+  if (role === "Product")
+    return `Feature the exact ${product} from ${tags} — its design, colour, materials, proportions and any markings/branding completely unchanged; it stays the clear focal point of the shot`;
+  if (role === "Logo")
+    return `Include the exact brand logo from ${tags}, its shape and colours unchanged`;
+  if (role === "Style")
+    return `Match the overall look, colour palette, mood and lighting of ${tags}`;
+  return `Use ${tags} as a reference, matching it closely`;
+}
+// Short per-image label for the Seedance video omni-reference bindings.
 function roleBinding(role, name) {
   const p = (state.plan && state.plan.product) || name || "the product";
-  if (role === "Presenter") return "the presenter — use this EXACT person: identical face, hair, skin tone, build and wardrobe. Ignore any other description of a person";
-  if (role === "Product")   return `${p} — reproduce this EXACT product: same design, colour, shape, materials and branding. Do not invent a different one`;
-  if (role === "Logo")      return "the brand logo — reproduce it exactly if it appears";
-  if (role === "Style")     return "a style / mood reference — match its look, colour palette and lighting";
-  return `${name || "a reference image"} — match it`;
+  if (role === "Presenter") return "the presenter — match this person's identity exactly";
+  if (role === "Product")   return `the exact ${p} — same design, colour and materials, unchanged`;
+  if (role === "Logo")      return "the exact brand logo, unchanged";
+  if (role === "Style")     return "a style/mood reference — match its look";
+  return `${name || "a reference image"}`;
 }
 
 // Build the ordered list of selected refs for a frame (used for @Image numbering).
@@ -325,17 +348,16 @@ async function storyGenerate(i, opts = {}) {
   } else {
     const refs = selectedRefs(s);
     if (refs.length) {
-      // Group by role so multiple images of one subject (front/3-4/side) bind as the
-      // SAME person/product from different angles — stronger identity lock (Kling "Elements").
+      // Seedream-native: cite each reference inline as @imageN (numbered by send order),
+      // grouped by role so several images of one subject bind together (Kling "Elements").
+      const product = (state.plan && state.plan.product) || "the product";
       const byRole = {};
-      refs.forEach((r, n) => { (byRole[r.role] = byRole[r.role] || []).push({ n: n + 1, name: r.name }); });
-      const bindings = Object.entries(byRole).map(([role, list]) => {
-        const tag = list.map(x => `@Image ${x.n}`).join(" & ");
-        const multi = list.length > 1 ? " (same subject from multiple references — keep it identical across all)" : "";
-        return `${tag} = ${roleBinding(role, list[0].name)}${multi}`;
-      }).join("; ");
-      prompt = `Reference bindings: ${bindings}. Use exactly these references. Scene: ${s.prompt}${SAFETY_SUFFIX}`;
-      image = refs.map(r => r.url);            // multi-image reference array for Seedream
+      refs.forEach((r, n) => { (byRole[r.role] = byRole[r.role] || []).push(`@image${n + 1}`); });
+      const order = ["Presenter", "Product", "Logo", "Style", "Other"];
+      const clauses = order.filter(rl => byRole[rl]).map(rl => refClause(rl, byRole[rl].join(" and "), product));
+      // Scene describes pose/action/environment/camera/lighting (identity/product come from refs).
+      prompt = `${clauses.join(". ")}. ${s.prompt}${SAFETY_SUFFIX}`;
+      image = refs.map(r => r.url);            // multi-image reference array for Seedream, in @imageN order
     } else {
       // No references selected — fall back to the plan's presenter description.
       prompt = ((state.plan && state.plan.presenter) ? state.plan.presenter + ". " : "") + s.prompt + SAFETY_SUFFIX;
@@ -356,7 +378,7 @@ function renderStory() {
   const wrap = $("#storyCards"); wrap.innerHTML = "";
   const banner = el("div", "refinfo");
   banner.innerHTML = state.refs.length
-    ? `🎯 <b>References drive appearance.</b> Toggle which Brand-Kit references each frame uses — the person, the product, the logo. Selected ones are bound as <code>@Image 1</code>, <code>@Image 2</code>… so Seedream reproduces that exact person AND that exact product (no re-inventing). The prompt controls pose &amp; scene only.`
+    ? `🎯 <b>References drive appearance.</b> Toggle which Brand-Kit references each frame uses. Selected ones are cited inline as <code>@image1</code>, <code>@image2</code>… with "match exactly / unchanged" instructions (Seedream convention), so it reproduces that exact person AND that exact product — check each chip's role is right (person = Presenter, shoe = Product). The prompt controls pose &amp; scene only.`
     : `👤 <b>No references yet.</b> Frames will use the plan's presenter description only. Add a <b>Presenter</b> and <b>Product</b> in <b>Brand Kit</b> (Step 3) to lock the exact person and product.`;
   wrap.appendChild(banner);
   state.story.forEach((s, i) => {

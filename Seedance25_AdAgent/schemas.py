@@ -33,13 +33,15 @@ AD_PLAN_SCHEMA = {
                     "camera": {"type": "string", "description": "Camera framing/movement, e.g. 'medium tracking'"},
                     "keyframe_prompt": {"type": "string", "description": (
                         "A CLEAN still-image prompt for Seedream (the storyboard frame for this beat). "
-                        "Refer to the person ONLY as 'the presenter' — do NOT describe their face, hair, "
-                        "age, ethnicity, build or wardrobe (identity comes from the reference image / the "
-                        "top-level presenter field). Describe ONLY: the presenter's pose/action, the "
-                        "product, the environment, camera framing and lighting, in Seedream's 6-part style. "
-                        "MUST NOT include camera cuts/transitions, motion, floating icons/holograms/UI/"
-                        "graphic props, on-screen text, badges, or Hindi text (added later). Exactly one "
-                        "product/vehicle in frame.")},
+                        "Refer to the person ONLY as 'the presenter' and the product ONLY generically "
+                        "('the product'/'the shoe'/'the car'). Do NOT describe the presenter's face, hair, "
+                        "age, ethnicity, build or wardrobe, and do NOT invent the product's brand, colour, "
+                        "model or markings (identity AND product appearance come from the reference images, "
+                        "bound by the app as @image1, @image2). Describe ONLY: the presenter's pose/action, "
+                        "how the product is shown, the environment, camera framing and lighting, in "
+                        "Seedream's 6-part style. MUST NOT include camera cuts/transitions, motion, floating "
+                        "icons/holograms/UI/graphic props, on-screen text, badges, or Hindi text (added "
+                        "later). Exactly one product/vehicle in frame.")},
                     "vo_hindi": {"type": "string", "description": "Voiceover line in Hindi (Devanagari), '' if none"},
                     "vo_english": {"type": "string", "description": "English meaning of the VO line, '' if none"},
                     "on_screen_text": {"type": "string", "description": "Short badge text for this beat (English/number only), '' if none"}

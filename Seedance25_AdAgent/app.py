@@ -152,20 +152,20 @@ def api_list_assets():
 
 
 def build_asset_bindings(images, audios, labels=None):
-    """Enumerate references by upload order so the model's @Image N / @Audio N
-    numbering is unambiguous (Seedance best practice: bind each asset in text)."""
+    """Enumerate references by upload order using the Seedream/Seedance @imageN /
+    @audioN convention so each asset is bound unambiguously in the text."""
     lines = []
     for i, _ in enumerate(images, start=1):
         lbl = (labels[i - 1] if labels and i - 1 < len(labels) and labels[i - 1]
-               else ("the main presenter/subject — keep this exact identity" if i == 1
-                     else "a reference image"))
-        lines.append(f"@Image {i} = {lbl}")
+               else ("the presenter — match this identity exactly" if i == 1
+                     else "a reference image, matched closely"))
+        lines.append(f"@image{i} = {lbl}")
     for j, _ in enumerate(audios, start=1):
-        lines.append(f"@Audio {j} = the voiceover; lip-sync the speaker to it")
+        lines.append(f"@audio{j} = the voiceover; lip-sync the speaker to it")
     if not lines:
         return ""
-    return ("Asset bindings (by upload order): " + "; ".join(lines)
-            + ". Use exactly these bindings in the action below.\n\n")
+    return ("References (cite each inline in the action below, matching it exactly): "
+            + "; ".join(lines) + ".\n\n")
 
 
 # ── Stage 4: Seedance long-form generation ───────────────────────────────────
@@ -180,7 +180,7 @@ def api_generate_video():
         duration = max(4, min(30, int(duration)))
     images = [u for u in (b.get("reference_images") or []) if u]
     audios = [u for u in (b.get("reference_audios") or []) if u]
-    # Prepend explicit asset bindings so @Image N / @Audio N map to upload order.
+    # Prepend explicit asset bindings so @imageN / @audioN map to upload order.
     text = build_asset_bindings(images, audios, b.get("reference_labels")) + brief
     content = seedance.build_omni_content(
         text=text, reference_images=images, reference_audios=audios)

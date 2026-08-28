@@ -82,10 +82,11 @@
       <p class="muted">Build the reference set Seedance keeps consistent across the whole ad:
         presenter, product, logo, style. Upload, pick an example, or generate with Seedream.
         Real-person photos are run through Seedream to become model-generated (Seedance-trusted).</p>
-      <p class="muted">Add as many references as you need and tag each with a <b>role</b>. Roles are
-        bound into the prompts as <code>@Image 1 = presenter</code>, <code>@Image 2 = product</code>, etc.
-        so the exact person AND the exact product appear. On the Storyboard you pick which references each
-        frame uses.</p>
+      <p class="muted">Add as many references as you need and tag each with a <b>role</b> (you can change a
+        role after adding it). References are cited inline in the Seedream prompt as <code>@image1</code>,
+        <code>@image2</code>… — e.g. <i>"the presenter from @image1; face matches @image1 exactly. Feature the
+        exact shoe from @image2, unchanged."</i> — so the exact person AND the exact product appear. On the
+        Storyboard you pick which references each frame uses.</p>
       <div id="refProposals" class="hidden"></div>
       <div class="row">
         <label>Role
