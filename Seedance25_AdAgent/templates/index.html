@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seedance 2.5 Ad Agent</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="dot"></span><h1>Seedance&nbsp;2.5 Ad Agent</h1></div>
+    <div id="configBadges" class="badges"></div>
+  </header>
+
+  <nav class="steps">
+    <button class="step active" data-step="1"><b>1</b> Brief</button>
+    <button class="step" data-step="2"><b>2</b> Script</button>
+    <button class="step" data-step="3"><b>3</b> Brand Kit</button>
+    <button class="step" data-step="4"><b>4</b> Storyboard</button>
+    <button class="step" data-step="5"><b>5</b> Generate</button>
+    <button class="step" data-step="6"><b>6</b> Edit &amp; Export</button>
+  </nav>
+
+  <main>
+    <!-- STEP 1 BRIEF -->
+    <section class="panel active" id="panel-1">
+      <h2>1 · Brief</h2>
+      <p class="muted">Describe the ad. Then let the <b>Script Agent</b> (Seed LLM) turn it into a
+        structured plan, or paste your own plan in step 2.</p>
+      <div class="row">
+        <label>Sample brief <select id="sampleBrief"><option value="">—</option></select></label>
+        <button id="loadBrief" class="btn ghost">Load</button>
+      </div>
+      <label class="block">Brief
+        <textarea id="brief" rows="8" placeholder="Brand, product, offers, CTA + contact, tone, audience…"></textarea>
+      </label>
+      <div class="row">
+        <label>Duration (s) <input id="duration" type="number" value="20" min="8" max="30" size="4"></label>
+        <label>Aspect <select id="aspect"><option>9:16</option><option>16:9</option><option>1:1</option></select></label>
+        <label>Language <input id="language" value="Hindi + English" size="16"></label>
+        <label class="chk"><input type="checkbox" id="modelText"> Let the model render simple on-screen text (hybrid)</label>
+      </div>
+      <div class="stepnav">
+        <button id="genPlanBtn" class="btn primary">Generate plan with Script Agent →</button>
+        <button id="skipPlanBtn" class="btn">I'll paste my own plan →</button>
+      </div>
+      <div id="planWarn" class="warnings"></div>
+    </section>
+
+    <!-- STEP 2 SCRIPT -->
+    <section class="panel" id="panel-2">
+      <h2>2 · Ad Plan (script + storyboard)</h2>
+      <p class="muted">Review the plan. The <b>director's brief</b> is the single prompt Seedance
+        generates the whole ad from. Edit anything; it feeds later steps.</p>
+      <label class="block">Paste / edit Ad Plan (JSON)
+        <textarea id="planJson" rows="10" placeholder='{"title":"…","director_brief":"…","scenes":[…],"overlay_text":[…]}'></textarea>
+      </label>
+      <button id="applyPlan" class="btn">Apply plan</button>
+      <div id="planView"></div>
+      <div class="stepnav">
+        <button class="btn" data-goto="1">← Back</button>
+        <button class="btn primary" data-goto="3">Next: Brand Kit →</button>
+      </div>
+    </section>
+
+    <!-- STEP 3 BRAND KIT -->
+    <section class="panel" id="panel-3">
+      <h2>3 · Brand Kit (omni references)</h2>
+      <p class="muted">Build the reference set Seedance keeps consistent across the whole ad:
+        presenter, product, logo, style. Upload, pick an example, or generate with Seedream.
+        Real-person photos are run through Seedream to become model-generated (Seedance-trusted).</p>
+      <div class="row">
+        <label class="btn small">⬆ Upload reference<input id="refUpload" type="file" accept="image/*" hidden></label>
+        <label class="chk"><input type="checkbox" id="isFace" checked> This is a person's face (prepare as trusted)</label>
+        <button id="genRefBtn" class="btn small">Generate a reference from text…</button>
+      </div>
+      <div id="refList" class="assetlist"></div>
+
+      <h3 style="margin-top:22px">Voiceover</h3>
+      <div class="row">
+        <label class="chk"><input type="radio" name="vomode" id="voA" checked> A · Seedance speaks the Hindi VO natively</label>
+        <label class="chk"><input type="radio" name="vomode" id="voB"> B · Exact VO via reference audio (TTS / upload)</label>
+      </div>
+      <div id="voBBox" class="hidden">
+        <div class="row">
+          <button id="ttsBtn" class="btn small">Synthesize VO (BytePlus TTS)</button>
+          <label class="btn small">⬆ Upload VO audio<input id="voUpload" type="file" accept="audio/*" hidden></label>
+          <span id="voStatus" class="status"></span>
+        </div>
+      </div>
+      <div class="stepnav">
+        <button class="btn" data-goto="2">← Back</button>
+        <button class="btn primary" data-goto="4">Next: Storyboard →</button>
+      </div>
+    </section>
+
+    <!-- STEP 4 STORYBOARD -->
+    <section class="panel" id="panel-4">
+      <h2>4 · Storyboard preview (approval gate)</h2>
+      <p class="muted">Generate a few Seedream frames (open / hero / CTA). Approved frames are
+        <b>anchored</b> into the Seedance generation so the video matches what you approved.</p>
+      <button id="genStoryBtn" class="btn primary">Generate storyboard frames</button>
+      <div id="storyCards" class="cards"></div>
+      <div class="stepnav">
+        <button class="btn" data-goto="3">← Back</button>
+        <button class="btn primary" data-goto="5">Next: Generate →</button>
+      </div>
+    </section>
+
+    <!-- STEP 5 GENERATE -->
+    <section class="panel" id="panel-5">
+      <h2>5 · Generate the ad (Seedance 2.5, one long-form request)</h2>
+      <p class="muted">One request generates the whole ad (≤30s) using the director's brief +
+        the Brand Kit + approved storyboard frames as omni references.</p>
+      <label class="block">Director's brief (final Seedance prompt)
+        <textarea id="directorBrief" rows="7"></textarea>
+      </label>
+      <div class="row">
+        <label>Resolution <select id="res"><option>720p</option><option>1080p</option><option>480p</option></select></label>
+        <label>Duration (s) <input id="genDur" type="number" value="20" min="4" max="30" size="4"></label>
+        <label class="chk"><input type="checkbox" id="genAudio" checked> Generate audio</label>
+        <button id="genVideoBtn" class="btn primary">Generate ad</button>
+        <span id="genStatus" class="status"></span>
+      </div>
+      <div id="refsSummary" class="muted"></div>
+      <div id="videoOut" class="media-lg"></div>
+      <div class="stepnav">
+        <button class="btn" data-goto="4">← Back</button>
+        <button class="btn primary" data-goto="6">Next: Edit &amp; Export →</button>
+      </div>
+    </section>
+
+    <!-- STEP 6 EDIT / EXPORT -->
+    <section class="panel" id="panel-6">
+      <h2>6 · Edit, extend &amp; export</h2>
+      <p class="muted">Fix a segment in place (timestamp edit) or extend — Seedance edits the
+        generated ad, no re-stitch. Then composite brand overlays in post.</p>
+      <label class="block">Edit instruction (e.g. "at 12–15s make the on-screen badge read ₹2.45 Lakh, punchier CTA")
+        <textarea id="editInstr" rows="3"></textarea>
+      </label>
+      <div class="row">
+        <button id="editBtn" class="btn primary">Apply edit</button>
+        <button id="extendBtn" class="btn">Extend</button>
+        <span id="editStatus" class="status"></span>
+      </div>
+      <div id="editOut" class="media-lg"></div>
+      <h3 style="margin-top:20px">Post overlays (composite in your editor)</h3>
+      <div id="overlayPlan" class="assetlist"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
