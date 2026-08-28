@@ -58,6 +58,16 @@ textarea { resize:vertical; font-size:13px; width:100%; }
 .refchip.on img { opacity:1; } .refchip.on.ok { border-color:var(--ok); background:rgba(46,160,67,.12); }
 .refchip.on.run { border-color:var(--accent2); background:rgba(47,129,247,.14); }
 .refchip b { color:var(--accent2); } .refchip.on.ok b { color:var(--ok); }
+.propose { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:16px; }
+.propose .phead { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:6px; }
+.propose .muted { margin:6px 0 10px; }
+.proprow { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.proprow .status { flex:0 0 auto; } .proprow textarea { flex:1; }
+.hookrow { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+.hookchip { text-align:left; background:var(--bg); color:var(--text); border:1px solid var(--line);
+  border-radius:8px; padding:8px 12px; cursor:pointer; font:inherit; font-size:13px; }
+.hookchip:hover { border-color:var(--accent2); }
+.hookchip.on { border-color:var(--ok); background:rgba(46,160,67,.12); }
 .refinfo { font-size:13px; color:var(--muted); background:var(--card); border:1px solid var(--line);
   border-radius:10px; padding:10px 13px; } .refinfo b { color:var(--text); }
 #storyCards .refinfo { grid-column:1 / -1; }

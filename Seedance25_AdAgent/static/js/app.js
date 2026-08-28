@@ -7,6 +7,7 @@ const state = {
   voMode: "A", voRef: "",   // reference audio (asset:// or data URI) for VO mode B
   story: [],           // storyboard frames: {label, url, approved, useRefs[]}
   videoUrl: "",        // latest generated / edited ad
+  chosenHook: null,    // index of the opening hook the user picked
 };
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -24,6 +25,8 @@ document.addEventListener("click", e => { const b = e.target.closest("[data-goto
 function goStep(n) {
   $$(".step").forEach(b => b.classList.toggle("active", +b.dataset.step === n));
   $$(".panel").forEach(p => p.classList.toggle("active", p.id === `panel-${n}`));
+  if (n === 2) renderHooks();
+  if (n === 3) { renderProposals(); renderRefs(); }
   if (n === 4) renderStoryboard();
   if (n === 5) renderGenerate();
   if (n === 6) renderOverlayPlan();
@@ -45,6 +48,13 @@ $("#loadBrief").addEventListener("click", async () => {
   const n = $("#sampleBrief").value; if (!n) return toast("Pick a sample");
   const d = await api("/api/sample-brief?name=" + encodeURIComponent(n));
   $("#brief").value = d.text || ""; toast("Brief loaded");
+});
+// Platform preset → sets aspect + duration together (format-first, like every leading tool).
+$("#platform").addEventListener("change", e => {
+  const v = e.target.value; if (v === "custom") return;
+  const [, aspect, dur] = v.split("|");
+  if (aspect) $("#aspect").value = aspect;
+  if (dur) $("#duration").value = dur;
 });
 
 // STEP 1 -> plan
@@ -68,10 +78,30 @@ $("#skipPlanBtn").addEventListener("click", () => goStep(2));
 function setPlan(plan) {
   state.plan = plan;
   state.story = [];   // rebuild storyboard from the new plan on next visit
+  state.chosenHook = null;
   $("#planJson").value = JSON.stringify(plan, null, 2);
   $("#directorBrief").value = plan.director_brief || "";
-  renderPlanView();
+  renderPlanView(); renderHooks();
 }
+// Opening-hook variants — the LLM already writes 2-3; let the user pick the strongest.
+function renderHooks() {
+  const box = $("#hookBox"); if (!box) return;
+  const hooks = (state.plan && state.plan.hooks) || [];
+  if (!hooks.length) { box.innerHTML = ""; return; }
+  box.innerHTML = `<div class="refinfo"><b>🎣 Opening hooks</b> — the first ~3s decide watch-through.
+    Pick the strongest first line; it's set as the opening voiceover (scene 1).
+    <div class="hookrow">${hooks.map((h, i) =>
+      `<button class="hookchip${state.chosenHook === i ? " on" : ""}" data-hook="${i}">${esc(h)}</button>`).join("")}</div></div>`;
+}
+$("#hookBox").addEventListener("click", e => {
+  const b = e.target.closest("[data-hook]"); if (!b) return;
+  const i = +b.dataset.hook, h = state.plan.hooks[i];
+  if (state.plan.scenes && state.plan.scenes[0]) state.plan.scenes[0].vo_hindi = h;
+  state.chosenHook = i;
+  $("#planJson").value = JSON.stringify(state.plan, null, 2);
+  renderPlanView(); renderHooks();
+  toast("Hook set as the opening line (scene 1)");
+});
 $("#applyPlan").addEventListener("click", () => {
   try { const p = JSON.parse($("#planJson").value); setPlan(p); toast("Plan applied"); }
   catch (e) { toast("Invalid JSON: " + e.message, true); }
@@ -99,6 +129,66 @@ function renderRefs() {
 $("#refList").addEventListener("click", e => { const b = e.target.closest("[data-rmref]"); if (b) { state.refs.splice(+b.dataset.rmref, 1); state.story = []; renderRefs(); } });
 
 function addRef(obj) { state.refs.push(obj); state.story = []; renderRefs(); }   // reset story so chips refresh
+
+// ── Agent-proposed reference set ─────────────────────────────────────────────
+// Derive the Brand Kit the ad needs directly from the plan (presenter + product)
+// as ready-to-generate Seedream prompts, so the user doesn't hand-build each ref.
+function proposeRefs() {
+  const p = state.plan; if (!p) return [];
+  const out = [];
+  const presenter = (p.presenter || "").trim();
+  out.push({ role: "Presenter", name: "Presenter",
+    prompt: `high quality, ultra-fine, 2K, photorealistic portrait. ${presenter || "a friendly, relatable brand presenter"}, `
+      + `natural confident expression, looking straight at camera, upper-body framing. clean neutral studio background. `
+      + `vertical 9:16, sharp focus. soft even studio lighting, true-to-life skin tones` });
+  const product = (p.product || "").trim();
+  if (product) out.push({ role: "Product", name: product,
+    prompt: `high quality, ultra-fine, 2K, photorealistic product shot of ${product}${p.brand ? " by " + p.brand : ""}. `
+      + `entire product centered and fully visible, accurate colours, materials and proportions. clean seamless studio background. `
+      + `three-quarter hero angle. crisp commercial product-photography lighting, subtle reflection` });
+  return out;
+}
+function renderProposals() {
+  const box = $("#refProposals"); if (!box) return;
+  const props = proposeRefs();
+  if (!props.length) { box.classList.add("hidden"); box.innerHTML = ""; return; }
+  box.classList.remove("hidden"); box._props = props;
+  const done = pr => state.refs.some(r => r._prop === pr.name);
+  const allDone = props.every(done);
+  box.innerHTML = `<div class="propose">
+    <div class="phead"><b>✨ Agent-proposed reference set</b>
+      <button class="btn small primary" id="genAllProps" ${allDone ? "disabled" : ""}>Generate all proposed →</button></div>
+    <p class="muted">From your Ad Plan the agent proposes the references this ad needs. Generate the whole set with
+      one click — or upload your own real photos instead (recommended for a real product or a real presenter).</p>
+    ${props.map((pr, i) => `<div class="proprow">
+      <span class="status ${refRoleColor(pr.role)}">${esc(pr.role)}</span>
+      <textarea id="pp-${i}" rows="2">${esc(pr.prompt)}</textarea>
+      <button class="btn small" data-genprop="${i}" ${done(pr) ? "disabled" : ""}>${done(pr) ? "✓ added" : "Generate"}</button>
+    </div>`).join("")}
+    <p class="muted">Brand <b>logo</b>: upload your real logo file below (role = Logo) — don't generate a logo.</p>
+  </div>`;
+}
+async function generateProposal(i) {
+  const pr = $("#refProposals")._props[i];
+  const prompt = ($(`#pp-${i}`).value.trim()) || pr.prompt;
+  toast(`Generating ${pr.role} reference…`);
+  try {
+    const d = await api("/api/seedream", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt, size: "2K" }) });
+    const ref = await registerAsset(d.url, pr.name, "Image");
+    addRef({ url: d.url, ref, name: pr.name, role: pr.role, _prop: pr.name });
+    renderProposals();
+    toast(`${pr.role} reference ready`);
+  } catch (e) { toast(e.message, true); }
+}
+$("#refProposals").addEventListener("click", async e => {
+  const g = e.target.closest("[data-genprop]");
+  if (g) return generateProposal(+g.dataset.genprop);
+  if (e.target.id === "genAllProps") {
+    const props = $("#refProposals")._props || [];
+    for (let i = 0; i < props.length; i++) if (!state.refs.some(r => r._prop === props[i].name)) await generateProposal(i);
+    toast("Reference set ready — review, then continue to Storyboard");
+  }
+});
 
 $("#refUpload").addEventListener("change", async e => {
   const f = e.target.files[0]; if (!f) return;
@@ -235,7 +325,15 @@ async function storyGenerate(i, opts = {}) {
   } else {
     const refs = selectedRefs(s);
     if (refs.length) {
-      const bindings = refs.map((r, n) => `@Image ${n + 1} = ${roleBinding(r.role, r.name)}`).join("; ");
+      // Group by role so multiple images of one subject (front/3-4/side) bind as the
+      // SAME person/product from different angles — stronger identity lock (Kling "Elements").
+      const byRole = {};
+      refs.forEach((r, n) => { (byRole[r.role] = byRole[r.role] || []).push({ n: n + 1, name: r.name }); });
+      const bindings = Object.entries(byRole).map(([role, list]) => {
+        const tag = list.map(x => `@Image ${x.n}`).join(" & ");
+        const multi = list.length > 1 ? " (same subject from multiple references — keep it identical across all)" : "";
+        return `${tag} = ${roleBinding(role, list[0].name)}${multi}`;
+      }).join("; ");
       prompt = `Reference bindings: ${bindings}. Use exactly these references. Scene: ${s.prompt}${SAFETY_SUFFIX}`;
       image = refs.map(r => r.url);            // multi-image reference array for Seedream
     } else {

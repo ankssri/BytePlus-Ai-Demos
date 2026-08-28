@@ -35,6 +35,16 @@
         <textarea id="brief" rows="8" placeholder="Brand, product, offers, CTA + contact, tone, audience…"></textarea>
       </label>
       <div class="row">
+        <label>Platform / format
+          <select id="platform">
+            <option value="reels|9:16|15">Instagram Reels / TikTok · 9:16 · 15s</option>
+            <option value="shorts|9:16|30">YouTube Shorts · 9:16 · 30s</option>
+            <option value="story|9:16|20" selected>Story ad · 9:16 · 20s</option>
+            <option value="square|1:1|15">Feed / Square · 1:1 · 15s</option>
+            <option value="landscape|16:9|20">YouTube / Landscape · 16:9 · 20s</option>
+            <option value="custom">Custom (set manually →)</option>
+          </select>
+        </label>
         <label>Duration (s) <input id="duration" type="number" value="20" min="8" max="30" size="4"></label>
         <label>Aspect <select id="aspect"><option>9:16</option><option>16:9</option><option>1:1</option></select></label>
         <label>Language <input id="language" value="Hindi + English" size="16"></label>
@@ -58,6 +68,7 @@
         <textarea id="planJson" rows="10" placeholder='{"title":"…","director_brief":"…","scenes":[…],"overlay_text":[…]}'></textarea>
       </label>
       <button id="applyPlan" class="btn">Apply plan (save my edits)</button>
+      <div id="hookBox"></div>
       <div id="planView"></div>
       <div class="stepnav">
         <button class="btn" data-goto="1">← Back</button>
@@ -75,6 +86,7 @@
         bound into the prompts as <code>@Image 1 = presenter</code>, <code>@Image 2 = product</code>, etc.
         so the exact person AND the exact product appear. On the Storyboard you pick which references each
         frame uses.</p>
+      <div id="refProposals" class="hidden"></div>
       <div class="row">
         <label>Role
           <select id="refRole"><option>Presenter</option><option>Product</option><option>Logo</option><option>Style</option><option>Other</option></select>

@@ -132,3 +132,38 @@ PORT / FLASK_DEBUG
   `…/api/v3/chat/completions`).
 - **BytePlus TTS API** (endpoint + request shape) for VO mode B TTS source; until
   provided, mode B works via **user-uploaded VO** and TTS is a configurable stub.
+
+## Competitive benchmark → feature roadmap
+
+Benchmarked against Higgsfield, InVideo, Runway, Freepik, Kling, Hailuo, Pika,
+Arcads, Creatify, AdCreative, Google Flow/Veo, Adobe Firefly. The consolidated
+best-practice pipeline is: **Brief/format → Asset ("Ingredient") registration →
+Script + hook variants → Storyboard approval gate → generation → in-place edit →
+audio → export/A-B**. Feature status against that superset:
+
+| Feature (source pattern) | Tier | Status |
+|---|---|---|
+| Format-first platform presets (InVideo) | table-stakes | **Built** — TikTok/Reels/Shorts/YouTube/Square set aspect+duration |
+| Typed references: presenter/product/logo/style (Runway labeled refs, Flow Ingredients) | table-stakes | **Built** — roles bound as `@Image N` |
+| Agent proposes + one-click generates the reference set from the plan (Flow Ingredients, Higgsfield) | differentiator | **Built** — Brand Kit derives presenter/product prompts from the plan |
+| Per-frame "which references apply" toggle (Kling) | differentiator | **Built** — storyboard reference chips |
+| Multi-image same-subject binding, front/¾/side (Kling Elements, Hailuo) | table-stakes | **Built** — same-role refs bound as one subject "from multiple references" |
+| Auto hook/angle variations, user-picks the opener (Creatify, Arcads) | differentiator | **Built** — hook picker sets the opening VO |
+| Cheap keyframe storyboard **before** spending video credits (Seedream stills) | differentiator | **Built** — Storyboard approval gate |
+| Native audio + lip-sync in one pass (Seedance) | table-stakes | **Built** — `generate_audio` |
+| In-place single-shot / timestamp edit + extend (Runway Aleph, Seedance edit) | table-stakes | **Built** — Edit/Extend |
+| Chat-to-edit the whole ad (InVideo Magic Box) | table-stakes | **Built (basic)** — edit-instruction box |
+| Trained identity tier (Higgsfield Soul ID, Firefly custom models) | differentiator | Deferred — needs model-training infra we don't have; multi-image binding is our substitute |
+| Per-shot model routing (InVideo, Freepik) | differentiator | N/A — single video model (Seedance 2.5) |
+| Batch variation matrix / CSV A-B (Arcads, Creatify Batch) | differentiator | Roadmap — reuse Brand Kit, generate N hook variants |
+| One-click aspect-ratio variants from one master (most) | table-stakes | Roadmap |
+| Auto-captions/subtitles burn-in + music bed (InVideo) | table-stakes | Partial — overlay plan lists them; needs ffmpeg/PIL compositor (`overlays.py`) |
+| Performance scoring / direct publish to ad platforms (AdCreative, Creatify) | differentiator | Out of scope |
+| Product-URL ingestion → auto brief (Higgsfield, Creatify) | table-stakes | Roadmap — scrape page → prefill brief |
+
+**Consistency stack we settled on** (the biggest pain point): project-level typed
+reference registration (Flow) + labeled multi-image `@Image N` bindings (Runway) +
+same-subject multi-angle grouping (Kling) + a Seedream keyframe approval gate that
+locks the look cheaply *before* video spend, then Seedance in-place edit for
+product/packaging swaps (Aleph pattern). Trained identity (Soul ID) is the one tier
+we can't yet match and is the main future upgrade.
