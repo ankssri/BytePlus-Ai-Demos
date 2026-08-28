@@ -6,11 +6,26 @@ import requests
 from . import config as C
 
 
-def generate(prompt, size="720x1280", watermark=False, seed=None, model_id=None,
-             image=None, extra=None):
+def compose_image_prompt(subject, environment="", composition="", style="",
+                         lighting="", quality="high quality, ultra-fine, 2K"):
+    """
+    Build a Seedream 5.0 prompt in the recommended 6-part order:
+    Picture Quality + Subject & Features + Environment + Composition & Shot +
+    Style & Atmosphere + Lighting & Color. Content in natural language; aesthetics
+    as short phrases.
+    """
+    parts = [quality, subject, environment, composition, style, lighting]
+    return ". ".join(p.strip() for p in parts if p and p.strip()).strip()
+
+
+def generate(prompt, size="2K", watermark=False, seed=None, model_id=None,
+             image=None, optimize_prompt=None, sequential=False, extra=None):
     """
     Text-to-image, or image edit / identity pass when `image` is given
     (public URL, asset:// uri, or data:image/...;base64,...).
+    - size: "1K"/"2K"/"4K" or "WxH" (2K recommended for storyboard frames)
+    - optimize_prompt: let Seedream's VLM rewrite colloquial prompts (default on)
+    - sequential: set sequential_image_generation=auto to make a consistent SET
     Returns (result, http_status); on success result has "url".
     """
     if not C.api_key():
@@ -27,6 +42,10 @@ def generate(prompt, size="720x1280", watermark=False, seed=None, model_id=None,
         payload["seed"] = seed
     if image:
         payload["image"] = image
+    if optimize_prompt is not None:
+        payload["optimize_prompt"] = bool(optimize_prompt)
+    if sequential:
+        payload["sequential_image_generation"] = "auto"
     if extra:
         payload.update(extra)
 

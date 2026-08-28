@@ -159,8 +159,10 @@ $("#genStoryBtn").addEventListener("click", async () => {
     const s = state.story[i];
     setStory(i, "generating…", "run");
     try {
-      const prompt = (anchor ? "Keep the same person as in the reference image. " : "") + (s.scene.action || "") + " Photorealistic, vertical 9:16.";
-      const d = await api("/api/seedream", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt, size: "720x1280", image: anchor }) });
+      // Seedream 6-part composition: quality + subject + environment + shot + style + light.
+      const subj = (anchor ? "Keep the exact same person as in the reference image. " : "") + (s.scene.action || "");
+      const prompt = `high quality, ultra-fine, 2K. ${subj} Vertical 9:16 mobile framing. Photorealistic, cinematic, natural lighting.`;
+      const d = await api("/api/seedream", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt, size: "2K", image: anchor }) });
       s.url = d.url; renderStory();
     } catch (e) { setStory(i, "error", "err"); toast(e.message, true); }
   }
@@ -181,10 +183,21 @@ $("#storyCards").addEventListener("click", e => { const b = e.target.closest("[d
 // STEP 5 generate
 function collectRefs() {
   const imgs = state.refs.map(r => r.ref);
-  state.story.filter(s => s.approved && s.url).forEach(s => imgs.push(s.url));
+  const labels = state.refs.map(r => r.kind);
+  state.story.filter(s => s.approved && s.url).forEach(s => { imgs.push(s.url); labels.push(`approved ${s.label} storyboard frame (anchor this composition)`); });
   const auds = (state.voMode === "B" && state.voRef) ? [state.voRef] : [];
-  return { imgs, auds };
+  return { imgs, auds, labels };
 }
+$("#optimizeBtn").addEventListener("click", async () => {
+  const prompt = $("#directorBrief").value.trim(); if (!prompt) return toast("Nothing to optimize", true);
+  $("#optStatus").textContent = "optimizing…"; $("#optStatus").className = "status run";
+  try {
+    const d = await api("/api/optimize-prompt", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, duration: +$("#genDur").value, aspect: $("#aspect").value }) });
+    if (d.optimized) $("#directorBrief").value = d.optimized;
+    $("#optStatus").textContent = "optimized"; $("#optStatus").className = "status ok";
+  } catch (e) { $("#optStatus").textContent = "error"; $("#optStatus").className = "status err"; toast(e.message, true); }
+});
 function renderGenerate() {
   if (state.plan && !$("#directorBrief").value.trim()) $("#directorBrief").value = state.plan.director_brief || "";
   const { imgs, auds } = collectRefs();
@@ -192,11 +205,11 @@ function renderGenerate() {
 }
 $("#genVideoBtn").addEventListener("click", async () => {
   const brief = $("#directorBrief").value.trim(); if (!brief) return toast("Director's brief is empty", true);
-  const { imgs, auds } = collectRefs();
+  const { imgs, auds, labels } = collectRefs();
   $("#genStatus").textContent = "submitting…"; $("#genStatus").className = "status run";
   try {
     const d = await api("/api/generate-video", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ director_brief: brief, reference_images: imgs, reference_audios: auds,
+      body: JSON.stringify({ director_brief: brief, reference_images: imgs, reference_audios: auds, reference_labels: labels,
         resolution: $("#res").value, duration: +$("#genDur").value, aspect: $("#aspect").value, generate_audio: $("#genAudio").checked }) });
     await pollVideo(d.id, "#genStatus", url => { state.videoUrl = url; $("#videoOut").innerHTML = `<video src="${esc(url)}" controls></video>`; });
   } catch (e) { $("#genStatus").textContent = "error"; $("#genStatus").className = "status err"; toast(e.message, true); }

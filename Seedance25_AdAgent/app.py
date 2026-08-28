@@ -63,6 +63,18 @@ def api_ref_samples():
     return jsonify({"samples": items})
 
 
+# ── Prompt optimizer (sd25-pe equivalent) ───────────────────────────────────
+@app.route("/api/optimize-prompt", methods=["POST"])
+def api_optimize_prompt():
+    b = request.json or {}
+    prompt = (b.get("prompt") or "").strip()
+    if not prompt:
+        return jsonify({"error": "prompt is required"}), 400
+    result, status = llm.optimize_seedance_prompt(
+        prompt, duration=int(b.get("duration") or 20), aspect=b.get("aspect") or "9:16")
+    return jsonify(result), status
+
+
 # ── Stage 1: script agent ────────────────────────────────────────────────────
 @app.route("/api/generate-plan", methods=["POST"])
 def api_generate_plan():
@@ -88,8 +100,9 @@ def api_seedream():
     if not prompt:
         return jsonify({"error": "prompt is required"}), 400
     result, status = seedream.generate(
-        prompt=prompt, size=b.get("size") or "720x1280",
-        image=(b.get("image") or None), seed=b.get("seed"))
+        prompt=prompt, size=b.get("size") or "2K",
+        image=(b.get("image") or None), seed=b.get("seed"),
+        optimize_prompt=b.get("optimize_prompt", True))
     return jsonify(result), status
 
 
@@ -126,6 +139,23 @@ def api_asset_status(asset_id):
     return jsonify(result), status
 
 
+def build_asset_bindings(images, audios, labels=None):
+    """Enumerate references by upload order so the model's @Image N / @Audio N
+    numbering is unambiguous (Seedance best practice: bind each asset in text)."""
+    lines = []
+    for i, _ in enumerate(images, start=1):
+        lbl = (labels[i - 1] if labels and i - 1 < len(labels) and labels[i - 1]
+               else ("the main presenter/subject — keep this exact identity" if i == 1
+                     else "a reference image"))
+        lines.append(f"@Image {i} = {lbl}")
+    for j, _ in enumerate(audios, start=1):
+        lines.append(f"@Audio {j} = the voiceover; lip-sync the speaker to it")
+    if not lines:
+        return ""
+    return ("Asset bindings (by upload order): " + "; ".join(lines)
+            + ". Use exactly these bindings in the action below.\n\n")
+
+
 # ── Stage 4: Seedance long-form generation ───────────────────────────────────
 @app.route("/api/generate-video", methods=["POST"])
 def api_generate_video():
@@ -136,11 +166,12 @@ def api_generate_video():
     duration = b.get("duration")
     if duration is not None:
         duration = max(4, min(30, int(duration)))
+    images = [u for u in (b.get("reference_images") or []) if u]
+    audios = [u for u in (b.get("reference_audios") or []) if u]
+    # Prepend explicit asset bindings so @Image N / @Audio N map to upload order.
+    text = build_asset_bindings(images, audios, b.get("reference_labels")) + brief
     content = seedance.build_omni_content(
-        text=brief,
-        reference_images=[u for u in (b.get("reference_images") or []) if u],
-        reference_audios=[u for u in (b.get("reference_audios") or []) if u],
-    )
+        text=text, reference_images=images, reference_audios=audios)
     result, status = seedance.create(
         content=content,
         resolution=b.get("resolution") or "720p",

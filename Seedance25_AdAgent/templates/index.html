@@ -116,6 +116,10 @@
         <textarea id="directorBrief" rows="7"></textarea>
       </label>
       <div class="row">
+        <button id="optimizeBtn" class="btn small">✨ Optimize prompt (sd25-pe rules)</button>
+        <span id="optStatus" class="status"></span>
+      </div>
+      <div class="row">
         <label>Resolution <select id="res"><option>720p</option><option>1080p</option><option>480p</option></select></label>
         <label>Duration (s) <input id="genDur" type="number" value="20" min="4" max="30" size="4"></label>
         <label class="chk"><input type="checkbox" id="genAudio" checked> Generate audio</label>
