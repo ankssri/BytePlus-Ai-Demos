@@ -176,36 +176,74 @@ $("#genStoryBtn").addEventListener("click", async () => {
   const scenes = (state.plan && state.plan.scenes) || [];
   if (!scenes.length) return toast("No plan scenes — do step 2 first", true);
   const pick = [scenes[0], scenes[Math.floor(scenes.length / 2)], scenes[scenes.length - 1]].filter(Boolean);
-  // Anchor: use a Brand-Kit reference if present; otherwise, once the FIRST frame
-  // is generated, use it as the anchor for the rest so the same person carries over.
-  let anchor = state.refs[0] ? state.refs[0].url : null;
-  state.story = pick.map((s, i) => ({ label: ["Open", "Hero", "CTA"][i] || ("F" + i), scene: s, url: "", approved: false }));
+  // Anchor: use a Brand-Kit reference if present; otherwise the first generated frame.
+  state.storyAnchor = state.refs[0] ? state.refs[0].url : null;
+  state.story = pick.map((s, i) => ({ label: ["Open", "Hero", "CTA"][i] || ("F" + i), scene: s, url: "", approved: false, seed: null }));
   renderStory();
   for (let i = 0; i < state.story.length; i++) {
-    const s = state.story[i];
-    setStory(i, "generating…", "run");
-    try {
-      const subj = (anchor ? "Keep the exact same person (identical face, hair, outfit) as in the reference image. " : "") + (s.scene.action || "");
-      const prompt = `high quality, ultra-fine, 2K. ${subj} Vertical 9:16 mobile framing. Photorealistic, cinematic, natural lighting.`;
-      const d = await api("/api/seedream", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt, size: "2K", image: anchor }) });
-      s.url = d.url; renderStory();
-      if (!anchor) anchor = d.url;   // chain: first frame becomes the anchor for the rest
-    } catch (e) { setStory(i, "error", "err"); toast(e.message, true); }
+    await storyGenerate(i);
+    if (!state.storyAnchor && state.story[i].url) state.storyAnchor = state.story[i].url;  // chain
   }
-  toast("Storyboard ready — approve the frames you like");
+  toast("Storyboard ready — Regenerate / Edit any frame, then Approve the good ones");
 });
+
+// Seedream 6-part composition + a single-product constraint (kills duplicate-car
+// style hallucinations) + identity lock to the anchor.
+function composeStoryPrompt(scene, hasAnchor) {
+  const product = (state.plan && state.plan.product) || "the product";
+  const quality = "high quality, ultra-fine, 2K, photorealistic";
+  const subject = (hasAnchor ? "Keep the EXACT same person (identical face, hair, outfit) as in the reference image. " : "")
+    + (scene.action || "");
+  const constraint = `Show exactly ONE ${product} — a single vehicle only, no duplicate or extra cars in the frame.`;
+  const shot = scene.camera ? `${scene.camera}. Vertical 9:16 mobile framing.` : "Vertical 9:16 mobile framing.";
+  const style = "cinematic advertising still, clean composition";
+  const light = "natural realistic lighting";
+  return [quality, subject, constraint, shot, style, light].filter(Boolean).join(". ");
+}
+async function storyGenerate(i, opts = {}) {
+  const s = state.story[i];
+  const anchor = opts.editImage ? opts.editImage : state.storyAnchor;   // edit feeds current frame back
+  const prompt = opts.editInstruction
+    ? `${opts.editInstruction}. Keep the same person and overall scene; only apply this change. Photorealistic, vertical 9:16.`
+    : (s.prompt || (s.prompt = composeStoryPrompt(s.scene, !!state.storyAnchor)));
+  const seed = opts.newSeed ? Math.floor(Math.random() * 2147483000) : (s.seed ?? undefined);
+  s.seed = seed;
+  setStory(i, opts.editInstruction ? "editing…" : "generating…", "run");
+  try {
+    const d = await api("/api/seedream", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, size: "2K", image: anchor, seed, optimize_prompt: false }) });
+    s.url = d.url; s.approved = false; renderStory();
+    setStory(i, opts.editInstruction ? "edited" : "generated", "ok");
+  } catch (e) { setStory(i, "error", "err"); toast(`${s.label}: ${e.message}`, true); }
+}
 function renderStory() {
   $("#storyCards").innerHTML = "";
   state.story.forEach((s, i) => {
     const c = el("div", "card" + (s.approved ? " approved" : ""));
-    c.innerHTML = `<div class="head"><b>${esc(s.label)}</b><span class="status" id="ss-${i}"></span></div>
+    c.innerHTML = `<div class="head"><b>${esc(s.label)}</b><span class="status" id="ss-${i}">${esc(s._st || "")}</span></div>
       <div class="media">${s.url ? `<img src="${esc(s.url)}">` : "…"}</div>
-      <div class="body"><button class="btn small" data-story="${i}">${s.approved ? "✓ Approved (anchored)" : "Approve & anchor"}</button></div>`;
+      <div class="body">
+        <div class="actions">
+          <button class="btn small" data-act="regen" data-i="${i}">↻ Regenerate</button>
+          <button class="btn small" data-act="edit" data-i="${i}">✎ Edit</button>
+          <button class="btn primary small" data-act="approve" data-i="${i}">${s.approved ? "✓ Approved (anchored)" : "Approve & anchor"}</button>
+        </div>
+      </div>`;
     $("#storyCards").appendChild(c);
   });
 }
-function setStory(i, t, c) { const e = $(`#ss-${i}`); if (e) { e.textContent = t; e.className = "status " + (c || ""); } }
-$("#storyCards").addEventListener("click", e => { const b = e.target.closest("[data-story]"); if (!b) return; const i = +b.dataset.story; if (!state.story[i].url) return toast("Not generated yet", true); state.story[i].approved = !state.story[i].approved; renderStory(); });
+function setStory(i, t, c) { if (state.story[i]) state.story[i]._st = t; const e = $(`#ss-${i}`); if (e) { e.textContent = t; e.className = "status " + (c || ""); } }
+$("#storyCards").addEventListener("click", async e => {
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const i = +b.dataset.i, act = b.dataset.act, s = state.story[i];
+  if (act === "approve") { if (!s.url) return toast("Generate this frame first", true); s.approved = !s.approved; renderStory(); return; }
+  if (act === "regen") return storyGenerate(i, { newSeed: true });
+  if (act === "edit") {
+    if (!s.url) return toast("Generate this frame first, then edit", true);
+    const instr = window.prompt(`Edit instruction for the ${s.label} frame\n(e.g. "remove the second car", "make the car dark grey", "fix the left hand")`);
+    if (instr) storyGenerate(i, { editInstruction: instr, editImage: s.url });
+  }
+});
 
 // STEP 5 generate
 function collectRefs() {
