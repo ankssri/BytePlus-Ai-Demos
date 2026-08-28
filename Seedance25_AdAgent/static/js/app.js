@@ -203,9 +203,18 @@ async function storyGenerate(i, opts = {}) {
   // Honor the user's edited prompt from the textarea.
   const ta = $(`#sp-${i}`); if (ta && !opts.editInstruction) s.prompt = ta.value.trim();
   const anchor = opts.editImage ? opts.editImage : state.storyAnchor;
-  const prompt = opts.editInstruction
-    ? `${opts.editInstruction}. Keep the same person and the same scene; only apply this change. Photorealistic, vertical 9:16.`
-    : (s.prompt + SAFETY_SUFFIX);
+  // Reference-aware composition: identity comes from the reference image (Brand Kit
+  // or first frame). Only fall back to the plan's presenter description when there is
+  // no reference at all — so the text never competes with the reference.
+  let prompt;
+  if (opts.editInstruction) {
+    prompt = `${opts.editInstruction}. Keep the same person and the same scene; only apply this change. Photorealistic, vertical 9:16.`;
+  } else if (anchor) {
+    prompt = "Use the person in the reference image as the EXACT character — identical face, hair, build, "
+      + "and clothing. Ignore any other physical description of a person. Scene: " + s.prompt + SAFETY_SUFFIX;
+  } else {
+    prompt = ((state.plan && state.plan.presenter) ? state.plan.presenter + ". " : "") + s.prompt + SAFETY_SUFFIX;
+  }
   const seed = opts.newSeed ? Math.floor(Math.random() * 2147483000) : (s.seed ?? undefined);
   s.seed = seed;
   setStory(i, opts.editInstruction ? "editing…" : "generating…", "run");
@@ -218,7 +227,12 @@ async function storyGenerate(i, opts = {}) {
   } catch (e) { setStory(i, "error", "err"); toast(`${s.label}: ${e.message}`, true); }
 }
 function renderStory() {
-  $("#storyCards").innerHTML = "";
+  const wrap = $("#storyCards"); wrap.innerHTML = "";
+  const idBanner = el("div", "refinfo");
+  idBanner.innerHTML = state.storyAnchor
+    ? `👤 <b>Identity source:</b> your Brand-Kit reference image — every frame will match that exact person. The prompts below control pose &amp; scene only (they don't describe the person).`
+    : `👤 <b>No reference set.</b> The first frame you generate uses the plan's presenter description and then becomes the identity anchor for the rest. Tip: add a presenter image in <b>Brand Kit</b> (Step 3) to control who appears.`;
+  wrap.appendChild(idBanner);
   state.story.forEach((s, i) => {
     const c = el("div", "card" + (s.approved ? " approved" : ""));
     c.innerHTML = `<div class="head"><b>${esc(s.label)}</b><span class="status" id="ss-${i}">${esc(s._st || "")}</span></div>

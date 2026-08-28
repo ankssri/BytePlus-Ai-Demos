@@ -82,13 +82,16 @@ def generate_ad_plan(brief, duration=20, aspect="9:16", language="Hindi + Englis
         "director_brief in the Seedance 2.5 structure above (one-sentence summary, asset "
         "bindings with @Image/@Audio placeholders, tagged timestamped beats with dialogue "
         "in double quotes).\n"
-        "IMPORTANT — keyframe_prompt for each scene: this is a CLEAN photographic STILL for "
-        "the Seedream storyboard, NOT the video. Write it in Seedream's 6-part style (quality; "
-        "the presenter's look; the product; environment; camera framing; lighting). It must "
-        "contain ONLY things visible in a single real photo. Do NOT include camera cuts, "
-        "transitions, motion, floating icons, holograms, shields, calculators, graphic props, "
-        "UI elements, badges, on-screen text or Hindi text — those are added in post. Show "
-        "exactly ONE vehicle. Keep the same presenter identity across all keyframe_prompts."
+        "Also fill the top-level 'presenter' field with a concise physical description of the "
+        "on-screen presenter (age, gender, look, wardrobe).\n"
+        "IMPORTANT — keyframe_prompt for each scene: this is a CLEAN photographic STILL for the "
+        "Seedream storyboard, NOT the video. Refer to the person ONLY as 'the presenter' — do NOT "
+        "describe their face/hair/age/ethnicity/build/wardrobe in keyframe_prompt (identity comes "
+        "from the reference image or the presenter field). Describe ONLY the presenter's pose/action, "
+        "the product, environment, camera framing and lighting, in Seedream's 6-part style. Do NOT "
+        "include camera cuts, transitions, motion, floating icons, holograms, shields, calculators, "
+        "graphic props, UI elements, badges, on-screen text or Hindi text. Show exactly ONE "
+        "product/vehicle."
     )
     return _chat_schema(mid, SYSTEM, user)
 

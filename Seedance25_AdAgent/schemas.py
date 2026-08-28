@@ -8,6 +8,11 @@ AD_PLAN_SCHEMA = {
         "title": {"type": "string", "description": "Short internal name for this ad"},
         "brand": {"type": "string", "description": "Brand / dealer name"},
         "product": {"type": "string", "description": "Product being advertised"},
+        "presenter": {"type": "string", "description": (
+            "A concise physical description of the on-screen presenter (age, gender, look, "
+            "wardrobe) — used ONLY as a fallback to generate the first keyframe when the user "
+            "has NOT provided a presenter reference image. Keyframe/scene prompts must NOT "
+            "repeat this; they refer to 'the presenter' generically.")},
         "language": {"type": "string", "description": "Spoken language mix, e.g. 'Hindi + English'"},
         "duration_seconds": {"type": "integer", "description": "Target length, 8-30"},
         "aspect": {"type": "string", "description": "Aspect ratio, e.g. '9:16'"},
@@ -28,11 +33,13 @@ AD_PLAN_SCHEMA = {
                     "camera": {"type": "string", "description": "Camera framing/movement, e.g. 'medium tracking'"},
                     "keyframe_prompt": {"type": "string", "description": (
                         "A CLEAN still-image prompt for Seedream (the storyboard frame for this beat). "
-                        "Describe ONLY a single photographic still: the presenter (identity from the "
-                        "reference), the product, the setting and framing, in Seedream's 6-part style. "
-                        "MUST NOT include any camera cuts/transitions, motion, floating icons/holograms/UI/"
-                        "graphic props, on-screen text, badges, or Hindi text (those are added later). "
-                        "Exactly one vehicle in frame.")},
+                        "Refer to the person ONLY as 'the presenter' — do NOT describe their face, hair, "
+                        "age, ethnicity, build or wardrobe (identity comes from the reference image / the "
+                        "top-level presenter field). Describe ONLY: the presenter's pose/action, the "
+                        "product, the environment, camera framing and lighting, in Seedream's 6-part style. "
+                        "MUST NOT include camera cuts/transitions, motion, floating icons/holograms/UI/"
+                        "graphic props, on-screen text, badges, or Hindi text (added later). Exactly one "
+                        "product/vehicle in frame.")},
                     "vo_hindi": {"type": "string", "description": "Voiceover line in Hindi (Devanagari), '' if none"},
                     "vo_english": {"type": "string", "description": "English meaning of the VO line, '' if none"},
                     "on_screen_text": {"type": "string", "description": "Short badge text for this beat (English/number only), '' if none"}
@@ -64,6 +71,6 @@ AD_PLAN_SCHEMA = {
             }
         }
     },
-    "required": ["title", "brand", "product", "language", "duration_seconds",
+    "required": ["title", "brand", "product", "presenter", "language", "duration_seconds",
                  "aspect", "music_mood", "hooks", "scenes", "director_brief", "overlay_text"]
 }
