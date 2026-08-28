@@ -80,8 +80,11 @@
     <section class="panel" id="panel-3">
       <h2>3 · Brand Kit (omni references)</h2>
       <p class="muted">Build the reference set Seedance keeps consistent across the whole ad:
-        presenter, product, logo, style. Upload, pick an example, or generate with Seedream.
-        Real-person photos are run through Seedream to become model-generated (Seedance-trusted).</p>
+        presenter, product, <b>wardrobe</b> (a specific outfit to pin), logo, style. Upload, pick an
+        example, or generate with Seedream. Real-person photos are run through Seedream to become
+        model-generated (Seedance-trusted). Tip: a simple outfit doesn't need a Wardrobe image —
+        the <b>Wardrobe lock</b> text field on the Storyboard is enough; upload one only to pin an
+        exact/branded outfit.</p>
       <p class="muted">Add as many references as you need and tag each with a <b>role</b> (you can change a
         role after adding it). References are cited inline in the Seedream prompt as <code>@image1</code>,
         <code>@image2</code>… — e.g. <i>"the presenter from @image1; face matches @image1 exactly. Feature the
@@ -90,7 +93,7 @@
       <div id="refProposals" class="hidden"></div>
       <div class="row">
         <label>Role
-          <select id="refRole"><option>Presenter</option><option>Product</option><option>Logo</option><option>Style</option><option>Other</option></select>
+          <select id="refRole"><option>Presenter</option><option>Product</option><option>Wardrobe</option><option>Logo</option><option>Style</option><option>Other</option></select>
         </label>
         <label class="btn small">⬆ Upload reference<input id="refUpload" type="file" accept="image/*" hidden></label>
         <button id="pickAssetBtn" class="btn small">📁 Pick from Asset Library</button>

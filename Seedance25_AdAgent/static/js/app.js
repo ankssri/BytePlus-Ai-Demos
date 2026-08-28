@@ -120,7 +120,7 @@ function renderPlanView() {
 
 // STEP 3 brand kit — typed, multi-reference
 function refRoleColor(role) { return role === "Presenter" ? "run" : role === "Product" ? "ok" : ""; }
-const ROLES = ["Presenter", "Product", "Logo", "Style", "Other"];
+const ROLES = ["Presenter", "Product", "Wardrobe", "Logo", "Style", "Other"];
 function roleOptions(sel) { return ROLES.map(r => `<option ${r === sel ? "selected" : ""}>${r}</option>`).join(""); }
 function renderRefs() {
   $("#refList").innerHTML = state.refs.map((r, i) => `<div class="assetrow">
@@ -286,7 +286,7 @@ const SAFETY_SUFFIX = " Exactly one product/subject in frame; no floating icons,
 
 // Default reference selection for a new frame: presenter + product on, others off.
 function defaultUseRefs() {
-  return state.refs.map(r => r.role === "Presenter" || r.role === "Product");
+  return state.refs.map(r => ["Presenter", "Product", "Wardrobe"].includes(r.role));
 }
 function initStoryboard() {
   const scenes = (state.plan && state.plan.scenes) || [];
@@ -316,6 +316,8 @@ function refClause(role, tags, product) {
     return `The presenter is the person from ${tags}; their face, identity, skin tone, hair, build and proportions must match ${tags} exactly`;
   if (role === "Product")
     return `Wherever ${product} appears in this scene it MUST be the exact ${product} shown in ${tags} — identical design, colour, materials, proportions, pattern, sole/tread, logo and all markings; do NOT substitute, restyle or invent a different ${product}`;
+  if (role === "Wardrobe")
+    return `The presenter wears the exact outfit from ${tags} — same garments, cut, fabric, colours, patterns and logos, unchanged; keep this outfit identical across every shot`;
   if (role === "Logo")
     return `Include the exact brand logo from ${tags}, its shape and colours unchanged`;
   if (role === "Style")
@@ -327,6 +329,7 @@ function roleBinding(role, name) {
   const p = (state.plan && state.plan.product) || name || "the product";
   if (role === "Presenter") return "the presenter — match this person's identity exactly";
   if (role === "Product")   return `the exact ${p} — same design, colour and materials, unchanged`;
+  if (role === "Wardrobe")  return "the presenter's exact outfit — same garments and colours, unchanged";
   if (role === "Logo")      return "the exact brand logo, unchanged";
   if (role === "Style")     return "a style/mood reference — match its look";
   return `${name || "a reference image"}`;
@@ -345,7 +348,7 @@ function composeRefClauses(s) {
   const product = (state.plan && state.plan.product) || "the product";
   const byRole = {};
   refs.forEach((r, n) => { (byRole[r.role] = byRole[r.role] || []).push(`@image${n + 1}`); });
-  const order = ["Presenter", "Product", "Logo", "Style", "Other"];
+  const order = ["Presenter", "Wardrobe", "Product", "Logo", "Style", "Other"];
   const clauses = order.filter(rl => byRole[rl]).map(rl => refClause(rl, byRole[rl].join(" and "), product)).join(". ");
   return { clauses, image: refs.map(r => r.url), hasRefs: true };
 }
@@ -360,8 +363,10 @@ function composeStoryFullPrompt(s, sceneText) {
   const { clauses, hasRefs } = composeRefClauses(s);
   const refs = selectedRefs(s);
   const presenterInShot = !hasRefs || refs.some(r => r.role === "Presenter");
+  const hasWardrobeRef = refs.some(r => r.role === "Wardrobe");   // uploaded outfit drives wardrobe
   const w = effectiveWardrobe(s);
-  const wardrobeClause = (w && presenterInShot)
+  // Text wardrobe-lock only when there is no wardrobe reference image (that clause wins).
+  const wardrobeClause = (w && presenterInShot && !hasWardrobeRef)
     ? `The presenter wears ${w} — the exact same outfit kept consistent across every shot` : "";
   const parts = [];
   if (hasRefs) parts.push(clauses);
@@ -398,6 +403,16 @@ async function storyGenerate(i, opts = {}) {
     setStory(i, opts.editInstruction ? "edited" : "generated", "ok");
   } catch (e) { s._resp = { error: e.message }; setStory(i, "error", "err"); toast(`${s.label}: ${e.message}`, true); }
 }
+// Estimate whether a beat is long enough to speak its VO line at a natural pace.
+function voFit(scene) {
+  if (!scene) return null;
+  const en = (scene.vo_english || "").trim(), hi = (scene.vo_hindi || "").trim();
+  if (!en && !hi) return null;   // silent beat — pacing not constrained by speech
+  const enW = en ? en.split(/\s+/).length : 0, hiW = hi ? hi.split(/\s+/).length : 0;
+  const est = Math.max(enW / 2.3, hiW / 1.8) + 0.6;   // +breath; Hindi words run ~1.8 wps
+  const len = (scene.t_end != null && scene.t_start != null) ? (scene.t_end - scene.t_start) : null;
+  return { est: Math.round(est * 10) / 10, len, ok: len == null ? true : est <= len + 0.4 };
+}
 function renderStory() {
   const wrap = $("#storyCards"); wrap.innerHTML = "";
   const banner = el("div", "refinfo");
@@ -425,6 +440,7 @@ function renderStory() {
     c.innerHTML = `<div class="head"><b>${esc(s.label)}</b><span class="status" id="ss-${i}">${esc(s._st || "")}</span></div>
       <div class="media">${s.url ? `<img src="${esc(s.url)}">` : "not generated yet"}</div>
       <div class="body">
+        ${(() => { const f = voFit(s.scene); return f ? `<div class="vofit ${f.ok ? "ok" : "warn"}">🎙 spoken ≈${f.est}s${f.len != null ? ` · beat ${f.len}s` : ""} ${f.ok ? "· fits" : "· ⚠ too short — lengthen this beat in the Ad Plan (Step 2)"}</div>` : ""; })()}
         ${state.refs.length ? `<div class="chiprow">${chips}</div>` : ""}
         <label style="color:var(--muted);font-size:12px">Scene (pose / action / environment — edit before generating)
           <textarea id="sp-${i}" rows="3">${esc(s.prompt)}</textarea>

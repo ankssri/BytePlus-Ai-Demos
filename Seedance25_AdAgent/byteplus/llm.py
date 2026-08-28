@@ -20,7 +20,16 @@ AD FRAMEWORK (required): Subject (person/product) + Selling-point demonstration
 intent. Optional: consumption scenario & tone, camera language (the visual hook),
 audio (SFX/beat), post-production constraints.
 NATIVE STRUCTURE: Hook + Product + CTA. First ~3s = a strong visual/auditory hook;
-middle = clear product demo; end = explicit CTA. Cut every 2-3 seconds.
+middle = clear product demo; end = explicit CTA.
+
+BEAT PACING (critical for natural speech — do NOT force a fixed 2-3s per beat):
+size every beat to its spoken line so dialogue never sounds rushed. A speaking/
+lip-sync beat needs time to say the line at a natural pace — budget ~2.3 English
+words per second (or ~3.5 Hindi syllables/sec) PLUS ~0.7s to breathe; most spoken
+beats land at 4-6s. Only silent action, product cutaways or transitions should be
+1.5-3s. Prefer FEWER, longer beats when there is a lot of voiceover. All beats must
+still sum exactly to the total duration with no gaps. ("Cut every 2-3s" is only for
+silent montage/b-roll, never for dialogue.)
 
 SEEDANCE 2.5 director_brief STRUCTURE (write it exactly like this):
 1) One-sentence summary: Subject + Location + Event + Style + Camera.
@@ -29,9 +38,10 @@ SEEDANCE 2.5 director_brief STRUCTURE (write it exactly like this):
    "the presenter from @image1; face and build match @image1 exactly", "the exact product
    from @image2, its design/colour/materials unchanged", "@audio1 = the voiceover, lip-sync
    to it". Order when present: @image1 = presenter, then product/logo/style, then @audio1.
-3) Detailed plot on a continuous integer-second timeline with NO gaps
-   (e.g. 0-3s ... 3-6s ...), ~2-3s per beat. Each beat: visuals, camera movement,
-   action, dialogue in double quotes, sound. Tag lines with roles like [Subject],
+3) Detailed plot on a continuous timeline with NO gaps (e.g. 0-5s ... 5-8s ...),
+   each beat sized to its dialogue per BEAT PACING above (speaking beats ~4-6s,
+   silent cutaways ~2-3s). Each beat: visuals, camera movement, action, dialogue in
+   double quotes, sound. Tag lines with roles like [Subject],
    [Selling Point Demonstration], [Consumption Scenario and Tone],
    [Visual Hook and Camera Movement], [Audio-Visual Synchronization],
    [Post-Production Constraints].
@@ -78,8 +88,13 @@ def generate_ad_plan(brief, duration=20, aspect="9:16", language="Hindi + Englis
         f"Create an ad plan.\n\nBRIEF:\n{brief}\n\n"
         f"Constraints: language = {language}; total duration = {duration} seconds "
         f"(all scene times fit within 0..{duration}, continuous, no gaps); aspect = {aspect}.\n"
+        f"PACING: size each scene to its voiceover — a scene with a spoken line needs "
+        f"~2.3 English words/sec (or ~3.5 Hindi syllables/sec) + ~0.7s to breathe, so most "
+        f"speaking scenes are 4-6s; keep silent product/action cutaways 2-3s. Use FEWER, longer "
+        f"scenes rather than many rushed 3s ones; scene durations must sum to {duration}s.\n"
         f"{_text_rule(model_text)}\n"
-        "Write 3-6 scenes on a single timeline following Hook + Product + CTA, and a "
+        "Write 3-5 scenes on a single timeline following Hook + Product + CTA (favour fewer, "
+        "well-paced scenes over many rushed ones), and a "
         "director_brief in the Seedance 2.5 structure above (one-sentence summary, asset "
         "bindings citing @image1/@audio1 inline with match instructions, tagged timestamped "
         "beats with dialogue in double quotes).\n"
