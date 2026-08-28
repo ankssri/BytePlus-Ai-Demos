@@ -13,6 +13,11 @@ AD_PLAN_SCHEMA = {
             "wardrobe) — used ONLY as a fallback to generate the first keyframe when the user "
             "has NOT provided a presenter reference image. Keyframe/scene prompts must NOT "
             "repeat this; they refer to 'the presenter' generically.")},
+        "wardrobe": {"type": "string", "description": (
+            "The presenter's exact canonical outfit, kept IDENTICAL across every scene unless a "
+            "scene deliberately changes it, e.g. 'white performance t-shirt and black running "
+            "shorts'. Short and concrete (garments + colours). The app locks this into every "
+            "storyboard frame so clothing stays consistent.")},
         "language": {"type": "string", "description": "Spoken language mix, e.g. 'Hindi + English'"},
         "duration_seconds": {"type": "integer", "description": "Target length, 8-30"},
         "aspect": {"type": "string", "description": "Aspect ratio, e.g. '9:16'"},
@@ -73,6 +78,6 @@ AD_PLAN_SCHEMA = {
             }
         }
     },
-    "required": ["title", "brand", "product", "presenter", "language", "duration_seconds",
+    "required": ["title", "brand", "product", "presenter", "wardrobe", "language", "duration_seconds",
                  "aspect", "music_mood", "hooks", "scenes", "director_brief", "overlay_text"]
 }

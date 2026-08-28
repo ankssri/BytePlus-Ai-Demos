@@ -8,6 +8,7 @@ const state = {
   story: [],           // storyboard frames: {label, url, approved, useRefs[]}
   videoUrl: "",        // latest generated / edited ad
   chosenHook: null,    // index of the opening hook the user picked
+  wardrobe: "",        // project-wide wardrobe lock (kept consistent across frames)
 };
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -79,6 +80,7 @@ function setPlan(plan) {
   state.plan = plan;
   state.story = [];   // rebuild storyboard from the new plan on next visit
   state.chosenHook = null;
+  state.wardrobe = plan.wardrobe || state.wardrobe || "";   // seed the wardrobe lock from the plan
   $("#planJson").value = JSON.stringify(plan, null, 2);
   $("#directorBrief").value = plan.director_brief || "";
   renderPlanView(); renderHooks();
@@ -347,13 +349,26 @@ function composeRefClauses(s) {
   const clauses = order.filter(rl => byRole[rl]).map(rl => refClause(rl, byRole[rl].join(" and "), product)).join(". ");
   return { clauses, image: refs.map(r => r.url), hasRefs: true };
 }
+// Effective wardrobe for a frame: per-frame override wins, else the project lock.
+function effectiveWardrobe(s) {
+  return ((s && s.wardrobe && s.wardrobe.trim()) || (state.wardrobe && state.wardrobe.trim()) || "");
+}
 // The FULL prompt that is actually sent to Seedream for this frame — reference clauses
-// (@image1/@image2 …) + the scene text + safety suffix. This is shown live on each card.
+// (@image1/@image2 …) + wardrobe lock + the scene text + safety suffix. Shown live on each card.
 function composeStoryFullPrompt(s, sceneText) {
   const scene = (sceneText != null ? sceneText : s.prompt || "").trim();
   const { clauses, hasRefs } = composeRefClauses(s);
-  if (hasRefs) return `${clauses}. ${scene}${SAFETY_SUFFIX}`;
-  return ((state.plan && state.plan.presenter) ? state.plan.presenter + ". " : "") + scene + SAFETY_SUFFIX;
+  const refs = selectedRefs(s);
+  const presenterInShot = !hasRefs || refs.some(r => r.role === "Presenter");
+  const w = effectiveWardrobe(s);
+  const wardrobeClause = (w && presenterInShot)
+    ? `The presenter wears ${w} — the exact same outfit kept consistent across every shot` : "";
+  const parts = [];
+  if (hasRefs) parts.push(clauses);
+  else if (state.plan && state.plan.presenter) parts.push(state.plan.presenter);
+  if (wardrobeClause) parts.push(wardrobeClause);
+  parts.push(scene);
+  return parts.filter(Boolean).join(". ") + SAFETY_SUFFIX;
 }
 
 async function storyGenerate(i, opts = {}) {
@@ -390,6 +405,13 @@ function renderStory() {
     ? `🎯 <b>References drive appearance.</b> Toggle which Brand-Kit references each frame uses. Selected ones are cited inline as <code>@image1</code>, <code>@image2</code>… with "match exactly / unchanged" instructions (Seedream convention), so it reproduces that exact person AND that exact product — check each chip's role is right (person = Presenter, shoe = Product). The prompt controls pose &amp; scene only.`
     : `👤 <b>No references yet.</b> Frames will use the plan's presenter description only. Add a <b>Presenter</b> and <b>Product</b> in <b>Brand Kit</b> (Step 3) to lock the exact person and product.`;
   wrap.appendChild(banner);
+  const ward = el("div", "wardlock");
+  ward.innerHTML = `<label style="flex-direction:row;gap:8px;align-items:center;flex-wrap:wrap;width:100%">🧥
+    <b style="color:var(--text)">Wardrobe lock</b>
+    <input id="wardrobeGlobal" placeholder="e.g. white performance t-shirt and black running shorts"
+      value="${esc(state.wardrobe || "")}" style="flex:1;min-width:240px">
+    <span class="muted" style="font-size:12px;margin:0">Applied to every frame with the Presenter, so clothing stays identical. Override a single frame below to change it for that scene.</span></label>`;
+  wrap.appendChild(ward);
   state.story.forEach((s, i) => {
     if (!s.useRefs || s.useRefs.length !== state.refs.length) s.useRefs = defaultUseRefs();
     const sel = selectedRefs(s);
@@ -407,6 +429,8 @@ function renderStory() {
         <label style="color:var(--muted);font-size:12px">Scene (pose / action / environment — edit before generating)
           <textarea id="sp-${i}" rows="3">${esc(s.prompt)}</textarea>
         </label>
+        <label style="color:var(--muted);font-size:12px">Wardrobe override (blank = use the locked outfit)
+          <input id="wf-${i}" value="${esc(s.wardrobe || "")}" placeholder="${esc(state.wardrobe ? "locked: " + state.wardrobe : "same outfit as other frames")}"></label>
         <details class="finalprompt" ${s.url ? "" : "open"}><summary>Full prompt actually sent to Seedream (references auto-woven)</summary>
           <div class="fp-body" id="fp-${i}">${esc(composeStoryFullPrompt(s))}</div></details>
         ${(s._req || s._resp) ? `<details class="inspect"><summary>🔍 Inspect request &amp; response</summary>
@@ -430,9 +454,14 @@ $("#genStoryBtn").addEventListener("click", async () => {
   toast("Done — Edit/Regenerate any frame, then Approve the ones to anchor");
 });
 $("#resetStoryBtn").addEventListener("click", () => { initStoryboard(); toast("Reloaded prompts from the plan"); });
-// Live-update the "full prompt" preview as the scene text is edited.
+// Live-update the "full prompt" previews as the scene / wardrobe fields are edited.
+function refreshPreview(i) { const fp = $(`#fp-${i}`); if (fp) fp.textContent = composeStoryFullPrompt(state.story[i]); }
 $("#storyCards").addEventListener("input", e => {
-  const ta = e.target.closest("textarea[id^='sp-']"); if (!ta) return;
+  const t = e.target;
+  if (t.id === "wardrobeGlobal") { state.wardrobe = t.value; state.story.forEach((_, i) => refreshPreview(i)); return; }
+  const wf = t.closest("input[id^='wf-']");
+  if (wf) { const i = +wf.id.slice(3); if (state.story[i]) { state.story[i].wardrobe = wf.value; refreshPreview(i); } return; }
+  const ta = t.closest("textarea[id^='sp-']"); if (!ta) return;
   const i = +ta.id.slice(3); const s = state.story[i]; if (!s) return;
   const fp = $(`#fp-${i}`); if (fp) fp.textContent = composeStoryFullPrompt(s, ta.value);
 });
