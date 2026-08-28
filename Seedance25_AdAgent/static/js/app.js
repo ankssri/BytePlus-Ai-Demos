@@ -12,7 +12,7 @@ const state = {
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
-const esc = s => (s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const esc = s => (s == null ? "" : String(s)).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function toast(m, e) { const t = $("#toast"); t.textContent = m; t.classList.toggle("err", !!e); t.classList.add("show"); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 3400); }
 async function api(p, o) { const r = await fetch(p, o); let d; try { d = await r.json(); } catch { d = {}; } if (!r.ok) throw new Error(typeof d.error === "string" ? d.error : JSON.stringify(d.error || d)); return d; }
@@ -49,13 +49,17 @@ $("#loadBrief").addEventListener("click", async () => {
 // STEP 1 -> plan
 $("#genPlanBtn").addEventListener("click", async () => {
   const brief = $("#brief").value.trim(); if (!brief) return toast("Write a brief first", true);
-  $("#planWarn").innerHTML = "⏳ Script Agent is writing the ad plan…";
+  const btn = $("#genPlanBtn"); const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = "⏳ Writing the ad plan… (10–30s)";
+  $("#planWarn").innerHTML = "⏳ The Script Agent (Seed LLM) is writing your ad plan. This takes 10–30 seconds…";
   try {
     const d = await api("/api/generate-plan", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ brief, duration: +$("#duration").value, aspect: $("#aspect").value,
         language: $("#language").value, model_text: $("#modelText").checked }) });
-    setPlan(d.plan); $("#planWarn").innerHTML = ""; toast("Plan ready"); goStep(2);
-  } catch (e) { $("#planWarn").innerHTML = ""; toast(e.message, true); }
+    setPlan(d.plan); $("#planWarn").innerHTML = "";
+    toast("✓ Plan ready — opening the Script tab"); goStep(2);
+  } catch (e) { $("#planWarn").innerHTML = `<div>⚠ ${esc(e.message)}</div>`; toast(e.message, true); }
+  finally { btn.disabled = false; btn.textContent = orig; }
 });
 $("#skipPlanBtn").addEventListener("click", () => goStep(2));
 
@@ -105,6 +109,26 @@ $("#refUpload").addEventListener("change", async e => {
     renderRefs(); toast("Reference added");
   } catch (err) { toast(err.message, true); }
 });
+$("#pickAssetBtn").addEventListener("click", async () => {
+  const box = $("#assetPicker");
+  if (!box.classList.contains("hidden")) { box.classList.add("hidden"); return; }
+  box.classList.remove("hidden"); box.innerHTML = `<p class="muted">Loading asset library…</p>`;
+  try {
+    const d = await api("/api/list-assets");
+    const imgs = (d.assets || []).filter(a => (a.asset_type || "").toLowerCase() === "image" && a.url);
+    if (!imgs.length) { box.innerHTML = `<p class="muted">No image assets found in the group.</p>`; return; }
+    box.innerHTML = `<p class="muted">Click an existing asset to reuse it as a reference:</p>
+      <div class="pickgrid">` + imgs.map((a, i) =>
+        `<div class="pick" data-i="${i}" title="${esc(a.name || a.id)}"><img src="${esc(a.url)}"><span>${esc((a.name || a.id).slice(0, 16))}</span></div>`).join("") + `</div>`;
+    box._imgs = imgs;
+  } catch (e) { box.innerHTML = `<p class="muted">Could not load assets: ${esc(e.message)}</p>`; }
+});
+$("#assetPicker").addEventListener("click", e => {
+  const p = e.target.closest(".pick"); if (!p) return;
+  const a = $("#assetPicker")._imgs[+p.dataset.i];
+  state.refs.push({ url: a.url, ref: "asset://" + a.id, name: a.name || a.id, kind: "from library" });
+  renderRefs(); $("#assetPicker").classList.add("hidden"); toast("Reference added from library");
+});
 $("#genRefBtn").addEventListener("click", async () => {
   const prompt = window.prompt("Describe the reference to generate (product / logo / presenter / style):");
   if (!prompt) return;
@@ -152,20 +176,23 @@ $("#genStoryBtn").addEventListener("click", async () => {
   const scenes = (state.plan && state.plan.scenes) || [];
   if (!scenes.length) return toast("No plan scenes — do step 2 first", true);
   const pick = [scenes[0], scenes[Math.floor(scenes.length / 2)], scenes[scenes.length - 1]].filter(Boolean);
-  const anchor = state.refs[0] ? state.refs[0].url : null;   // keep presenter if we have one
+  // Anchor: use a Brand-Kit reference if present; otherwise, once the FIRST frame
+  // is generated, use it as the anchor for the rest so the same person carries over.
+  let anchor = state.refs[0] ? state.refs[0].url : null;
   state.story = pick.map((s, i) => ({ label: ["Open", "Hero", "CTA"][i] || ("F" + i), scene: s, url: "", approved: false }));
   renderStory();
   for (let i = 0; i < state.story.length; i++) {
     const s = state.story[i];
     setStory(i, "generating…", "run");
     try {
-      // Seedream 6-part composition: quality + subject + environment + shot + style + light.
-      const subj = (anchor ? "Keep the exact same person as in the reference image. " : "") + (s.scene.action || "");
+      const subj = (anchor ? "Keep the exact same person (identical face, hair, outfit) as in the reference image. " : "") + (s.scene.action || "");
       const prompt = `high quality, ultra-fine, 2K. ${subj} Vertical 9:16 mobile framing. Photorealistic, cinematic, natural lighting.`;
       const d = await api("/api/seedream", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt, size: "2K", image: anchor }) });
       s.url = d.url; renderStory();
+      if (!anchor) anchor = d.url;   // chain: first frame becomes the anchor for the rest
     } catch (e) { setStory(i, "error", "err"); toast(e.message, true); }
   }
+  toast("Storyboard ready — approve the frames you like");
 });
 function renderStory() {
   $("#storyCards").innerHTML = "";

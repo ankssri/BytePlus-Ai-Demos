@@ -50,12 +50,14 @@
     <!-- STEP 2 SCRIPT -->
     <section class="panel" id="panel-2">
       <h2>2 · Ad Plan (script + storyboard)</h2>
-      <p class="muted">Review the plan. The <b>director's brief</b> is the single prompt Seedance
-        generates the whole ad from. Edit anything; it feeds later steps.</p>
-      <label class="block">Paste / edit Ad Plan (JSON)
+      <p class="muted">Review the plan the Script Agent wrote. The <b>director's brief</b> is the single
+        prompt Seedance generates the whole ad from. You can edit the JSON below (e.g. tweak a line, a
+        timing, or the brief) and click <b>Apply plan</b> to save your edits — that's all "Apply plan"
+        does. If you don't edit anything, just continue to <b>Brand Kit</b>.</p>
+      <label class="block">Ad Plan (JSON) — edit if you want, then Apply
         <textarea id="planJson" rows="10" placeholder='{"title":"…","director_brief":"…","scenes":[…],"overlay_text":[…]}'></textarea>
       </label>
-      <button id="applyPlan" class="btn">Apply plan</button>
+      <button id="applyPlan" class="btn">Apply plan (save my edits)</button>
       <div id="planView"></div>
       <div class="stepnav">
         <button class="btn" data-goto="1">← Back</button>
@@ -72,8 +74,10 @@
       <div class="row">
         <label class="btn small">⬆ Upload reference<input id="refUpload" type="file" accept="image/*" hidden></label>
         <label class="chk"><input type="checkbox" id="isFace" checked> This is a person's face (prepare as trusted)</label>
+        <button id="pickAssetBtn" class="btn small">📁 Pick from Asset Library</button>
         <button id="genRefBtn" class="btn small">Generate a reference from text…</button>
       </div>
+      <div id="assetPicker" class="hidden"></div>
       <div id="refList" class="assetlist"></div>
 
       <h3 style="margin-top:22px">Voiceover</h3>
@@ -97,8 +101,10 @@
     <!-- STEP 4 STORYBOARD -->
     <section class="panel" id="panel-4">
       <h2>4 · Storyboard preview (approval gate)</h2>
-      <p class="muted">Generate a few Seedream frames (open / hero / CTA). Approved frames are
-        <b>anchored</b> into the Seedance generation so the video matches what you approved.</p>
+      <p class="muted">Generate a few Seedream frames (open / hero / CTA) as a visual preview of the ad.
+        <b>Approve &amp; anchor</b> the ones you like: <b>"Approved (anchored)"</b> means that frame will be
+        passed into the Seedance video generation as a reference image, so the final video keeps that exact
+        person and composition. Frames you don't approve are ignored.</p>
       <button id="genStoryBtn" class="btn primary">Generate storyboard frames</button>
       <div id="storyCards" class="cards"></div>
       <div class="stepnav">

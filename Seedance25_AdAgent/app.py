@@ -139,6 +139,17 @@ def api_asset_status(asset_id):
     return jsonify(result), status
 
 
+@app.route("/api/list-assets")
+def api_list_assets():
+    """List existing assets in the group so the user can reuse a previously
+    uploaded person/product instead of re-uploading."""
+    group_id = (request.args.get("group_id") or C.asset_group_id()).strip()
+    if not group_id:
+        return jsonify({"error": "group_id required"}), 400
+    result, status = assets.list_assets(group_id, page_size=int(request.args.get("page_size", 60)))
+    return jsonify(result), status
+
+
 def build_asset_bindings(images, audios, labels=None):
     """Enumerate references by upload order so the model's @Image N / @Audio N
     numbering is unambiguous (Seedance best practice: bind each asset in text)."""
