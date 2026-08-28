@@ -50,6 +50,14 @@ textarea { resize:vertical; font-size:13px; width:100%; }
 .card.approved { outline:2px solid var(--ok); }
 .card .actions { display:flex; gap:6px; flex-wrap:wrap; }
 .card textarea { width:100%; }
+.chiprow { display:flex; gap:6px; flex-wrap:wrap; }
+.refchip { display:inline-flex; align-items:center; gap:5px; background:var(--bg); color:var(--muted);
+  border:1px solid var(--line); border-radius:999px; padding:3px 9px 3px 3px; cursor:pointer; font-size:11px; }
+.refchip img { width:22px; height:22px; border-radius:50%; object-fit:cover; opacity:.5; }
+.refchip.on { color:var(--text); border-color:var(--accent2); background:rgba(47,129,247,.12); }
+.refchip.on img { opacity:1; } .refchip.on.ok { border-color:var(--ok); background:rgba(46,160,67,.12); }
+.refchip.on.run { border-color:var(--accent2); background:rgba(47,129,247,.14); }
+.refchip b { color:var(--accent2); } .refchip.on.ok b { color:var(--ok); }
 .refinfo { font-size:13px; color:var(--muted); background:var(--card); border:1px solid var(--line);
   border-radius:10px; padding:10px 13px; } .refinfo b { color:var(--text); }
 #storyCards .refinfo { grid-column:1 / -1; }

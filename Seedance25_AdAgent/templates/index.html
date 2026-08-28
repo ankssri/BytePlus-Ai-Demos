@@ -71,9 +71,15 @@
       <p class="muted">Build the reference set Seedance keeps consistent across the whole ad:
         presenter, product, logo, style. Upload, pick an example, or generate with Seedream.
         Real-person photos are run through Seedream to become model-generated (Seedance-trusted).</p>
+      <p class="muted">Add as many references as you need and tag each with a <b>role</b>. Roles are
+        bound into the prompts as <code>@Image 1 = presenter</code>, <code>@Image 2 = product</code>, etc.
+        so the exact person AND the exact product appear. On the Storyboard you pick which references each
+        frame uses.</p>
       <div class="row">
+        <label>Role
+          <select id="refRole"><option>Presenter</option><option>Product</option><option>Logo</option><option>Style</option><option>Other</option></select>
+        </label>
         <label class="btn small">⬆ Upload reference<input id="refUpload" type="file" accept="image/*" hidden></label>
-        <label class="chk"><input type="checkbox" id="isFace" checked> This is a person's face (prepare as trusted)</label>
         <button id="pickAssetBtn" class="btn small">📁 Pick from Asset Library</button>
         <button id="genRefBtn" class="btn small">Generate a reference from text…</button>
       </div>
@@ -101,12 +107,16 @@
     <!-- STEP 4 STORYBOARD -->
     <section class="panel" id="panel-4">
       <h2>4 · Storyboard preview (approval gate)</h2>
-      <p class="muted">One card per beat. Each shows an <b>editable keyframe prompt</b> (a clean still —
-        no on-screen text, icons or motion; those are added later). <b>Nothing generates automatically</b> —
-        edit a prompt, then <b>Generate</b> that frame (or <b>Generate all</b>). Then <b>✎ Edit image</b>
-        (type a fix like "remove the second car"), <b>↻ Regenerate</b>, and <b>Approve &amp; anchor</b>.
-        <b>"Approved (anchored)"</b> = that frame is passed into the Seedance video as a reference so the
-        final video keeps that exact person and composition. Un-approved frames are ignored.</p>
+      <p class="muted">One card per beat. Each shows the <b>reference chips</b> from your Brand Kit —
+        tap to choose which references that frame uses (presenter, product, logo…). Selected chips are
+        numbered <code>@1</code>, <code>@2</code>… and bound into the prompt so Seedream reproduces that
+        <b>exact person and exact product</b> instead of inventing new ones. Below is an <b>editable keyframe
+        prompt</b> (a clean still — no on-screen text, icons or motion; those come later).
+        <b>Nothing generates automatically</b> — pick refs, edit the prompt, then <b>Generate</b> (or
+        <b>Generate all</b>). Use <b>✎ Edit image</b> for a fix ("remove the second car"), <b>↻ Regenerate</b>,
+        and <b>Approve &amp; anchor</b>.
+        <b>"Approved (anchored)"</b> = that frame is also handed to the Seedance video as a reference so the
+        final video keeps that exact composition. Un-approved frames are ignored by the video.</p>
       <div class="row">
         <button id="genStoryBtn" class="btn primary">Generate all pending</button>
         <button id="resetStoryBtn" class="btn small">↻ Reload prompts from plan</button>

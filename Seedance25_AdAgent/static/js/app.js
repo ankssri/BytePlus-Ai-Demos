@@ -3,9 +3,9 @@
 
 const state = {
   config: {}, plan: null,
-  refs: [],            // brand-kit references: {url, ref, name, kind}  (ref = asset:// or url/dataURI)
+  refs: [],            // brand-kit references: {url, ref, name, role}  (ref = asset:// or url/dataURI)
   voMode: "A", voRef: "",   // reference audio (asset:// or data URI) for VO mode B
-  story: [],           // storyboard frames: {label, url, approved}
+  story: [],           // storyboard frames: {label, url, approved, useRefs[]}
   videoUrl: "",        // latest generated / edited ad
 };
 
@@ -86,29 +86,34 @@ function renderPlanView() {
   $("#planView").innerHTML = `<h3>${esc(p.title || "")} — ${esc(p.duration_seconds || "")}s ${esc(p.aspect || "")}</h3>${scenes}`;
 }
 
-// STEP 3 brand kit
+// STEP 3 brand kit — typed, multi-reference
+function refRoleColor(role) { return role === "Presenter" ? "run" : role === "Product" ? "ok" : ""; }
 function renderRefs() {
   $("#refList").innerHTML = state.refs.map((r, i) => `<div class="assetrow">
-    <img src="${esc(r.url)}"><div class="grow"><b>${esc(r.name)}</b> <span class="status">${esc(r.kind)}</span>
-    <div><code>${esc(r.ref.startsWith("asset://") ? r.ref : "(inline image)")}</code></div></div>
+    <img src="${esc(r.url)}"><div class="grow"><b>${esc(r.name)}</b>
+      <span class="status ${refRoleColor(r.role)}">${esc(r.role || "Other")}</span>
+      <div><code>${r.ref && r.ref.startsWith("asset://") ? esc(r.ref) : "(inline image)"}</code></div></div>
     <button class="btn small" data-rmref="${i}">remove</button></div>`).join("")
-    || `<p class="muted">No references yet.</p>`;
+    || `<p class="muted">No references yet. Add at least a <b>Presenter</b> and a <b>Product</b>.</p>`;
 }
-$("#refList").addEventListener("click", e => { const b = e.target.closest("[data-rmref]"); if (b) { state.refs.splice(+b.dataset.rmref, 1); renderRefs(); } });
+$("#refList").addEventListener("click", e => { const b = e.target.closest("[data-rmref]"); if (b) { state.refs.splice(+b.dataset.rmref, 1); state.story = []; renderRefs(); } });
+
+function addRef(obj) { state.refs.push(obj); state.story = []; renderRefs(); }   // reset story so chips refresh
 
 $("#refUpload").addEventListener("change", async e => {
   const f = e.target.files[0]; if (!f) return;
-  const data = await blobToDataURL(f);
+  const role = $("#refRole").value; const data = await blobToDataURL(f);
   try {
-    if ($("#isFace").checked) {
-      toast("Preparing face (Seedream trusted pass)…");
+    if (role === "Presenter") {
+      toast("Preparing presenter (Seedream trusted pass)…");
       const d = await api("/api/prepare-face", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: data }) });
       const ref = await registerAsset(d.url, f.name, "Image");
-      state.refs.push({ url: d.url, ref, name: f.name, kind: "presenter (trusted)" });
+      addRef({ url: d.url, ref, name: f.name, role });
     } else {
-      state.refs.push({ url: data, ref: data, name: f.name, kind: "reference (inline)" });
+      // Non-face references are used inline (base64) by Seedream/Seedance directly.
+      addRef({ url: data, ref: data, name: f.name, role });
     }
-    renderRefs(); toast("Reference added");
+    toast(`${role} reference added`);
   } catch (err) { toast(err.message, true); }
 });
 $("#pickAssetBtn").addEventListener("click", async () => {
@@ -128,18 +133,19 @@ $("#pickAssetBtn").addEventListener("click", async () => {
 $("#assetPicker").addEventListener("click", e => {
   const p = e.target.closest(".pick"); if (!p) return;
   const a = $("#assetPicker")._imgs[+p.dataset.i];
-  state.refs.push({ url: a.url, ref: "asset://" + a.id, name: a.name || a.id, kind: "from library" });
-  renderRefs(); $("#assetPicker").classList.add("hidden"); toast("Reference added from library");
+  addRef({ url: a.url, ref: "asset://" + a.id, name: a.name || a.id, role: $("#refRole").value });
+  $("#assetPicker").classList.add("hidden"); toast(`${$("#refRole").value} reference added from library`);
 });
 $("#genRefBtn").addEventListener("click", async () => {
-  const prompt = window.prompt("Describe the reference to generate (product / logo / presenter / style):");
+  const role = $("#refRole").value;
+  const prompt = window.prompt(`Describe the ${role} reference to generate:`);
   if (!prompt) return;
   try {
     toast("Generating with Seedream…");
-    const d = await api("/api/seedream", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt, size: "720x1280" }) });
+    const d = await api("/api/seedream", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt, size: "2K" }) });
     const ref = await registerAsset(d.url, prompt.slice(0, 24), "Image");
-    state.refs.push({ url: d.url, ref, name: prompt.slice(0, 24), kind: "generated" });
-    renderRefs(); toast("Reference generated");
+    addRef({ url: d.url, ref, name: prompt.slice(0, 24), role });
+    toast(`${role} reference generated`);
   } catch (e) { toast(e.message, true); }
 });
 async function registerAsset(url, name, type) {
@@ -174,16 +180,20 @@ $("#voUpload").addEventListener("change", async e => {
 });
 
 // STEP 4 storyboard — one editable card per scene; nothing generates until you ask.
-const SAFETY_SUFFIX = " Exactly one vehicle in frame; no floating icons, holograms, shields, "
+const SAFETY_SUFFIX = " Exactly one product/subject in frame; no floating icons, holograms, shields, "
   + "UI graphics, badges or on-screen text; photorealistic advertising still, vertical 9:16.";
 
+// Default reference selection for a new frame: presenter + product on, others off.
+function defaultUseRefs() {
+  return state.refs.map(r => r.role === "Presenter" || r.role === "Product");
+}
 function initStoryboard() {
   const scenes = (state.plan && state.plan.scenes) || [];
-  state.storyAnchor = state.refs[0] ? state.refs[0].url : null;
   state.story = scenes.map((s, i) => ({
     label: `Beat ${s.index || i + 1} · ${s.t_start ?? "?"}–${s.t_end ?? "?"}s`,
     scene: s,
-    prompt: (s.keyframe_prompt || composeStoryPrompt(s, !!state.storyAnchor)),
+    prompt: (s.keyframe_prompt || composeStoryPrompt(s)),
+    useRefs: defaultUseRefs(),
     url: "", approved: false, seed: null, _st: "",
   }));
   renderStory();
@@ -191,53 +201,80 @@ function initStoryboard() {
 function renderStoryboard() { if (!state.story.length) initStoryboard(); }
 
 // Fallback composer if the plan lacks a keyframe_prompt (older plans).
-function composeStoryPrompt(scene, hasAnchor) {
+function composeStoryPrompt(scene) {
   const product = (state.plan && state.plan.product) || "the product";
-  const subject = (hasAnchor ? "the same person as in the reference image, " : "a friendly presenter, ")
-    + `standing with a single ${product}`;
-  return `high quality, ultra-fine, 2K, photorealistic. ${subject}. ${scene.camera || "vertical 9:16 framing"}. `
-    + "bright modern showroom, cinematic advertising still, natural lighting";
+  return `high quality, ultra-fine, 2K, photorealistic. the presenter standing with a single ${product}. `
+    + `${scene.camera || "vertical 9:16 framing"}. bright modern setting, cinematic advertising still, natural lighting`;
 }
+
+// Human phrasing bound to each reference role for the @Image N preamble.
+function roleBinding(role, name) {
+  const p = (state.plan && state.plan.product) || name || "the product";
+  if (role === "Presenter") return "the presenter — use this EXACT person: identical face, hair, skin tone, build and wardrobe. Ignore any other description of a person";
+  if (role === "Product")   return `${p} — reproduce this EXACT product: same design, colour, shape, materials and branding. Do not invent a different one`;
+  if (role === "Logo")      return "the brand logo — reproduce it exactly if it appears";
+  if (role === "Style")     return "a style / mood reference — match its look, colour palette and lighting";
+  return `${name || "a reference image"} — match it`;
+}
+
+// Build the ordered list of selected refs for a frame (used for @Image numbering).
+function selectedRefs(s) {
+  return state.refs.filter((_, idx) => s.useRefs && s.useRefs[idx]);
+}
+
 async function storyGenerate(i, opts = {}) {
   const s = state.story[i];
   // Honor the user's edited prompt from the textarea.
   const ta = $(`#sp-${i}`); if (ta && !opts.editInstruction) s.prompt = ta.value.trim();
-  const anchor = opts.editImage ? opts.editImage : state.storyAnchor;
-  // Reference-aware composition: identity comes from the reference image (Brand Kit
-  // or first frame). Only fall back to the plan's presenter description when there is
-  // no reference at all — so the text never competes with the reference.
-  let prompt;
+
+  let prompt, image;
   if (opts.editInstruction) {
-    prompt = `${opts.editInstruction}. Keep the same person and the same scene; only apply this change. Photorealistic, vertical 9:16.`;
-  } else if (anchor) {
-    prompt = "Use the person in the reference image as the EXACT character — identical face, hair, build, "
-      + "and clothing. Ignore any other physical description of a person. Scene: " + s.prompt + SAFETY_SUFFIX;
+    // In-place edit of the already-generated frame — single reference (that image).
+    prompt = `${opts.editInstruction}. Keep the same people, product and scene; only apply this change. Photorealistic, vertical 9:16.`;
+    image = opts.editImage;
   } else {
-    prompt = ((state.plan && state.plan.presenter) ? state.plan.presenter + ". " : "") + s.prompt + SAFETY_SUFFIX;
+    const refs = selectedRefs(s);
+    if (refs.length) {
+      const bindings = refs.map((r, n) => `@Image ${n + 1} = ${roleBinding(r.role, r.name)}`).join("; ");
+      prompt = `Reference bindings: ${bindings}. Use exactly these references. Scene: ${s.prompt}${SAFETY_SUFFIX}`;
+      image = refs.map(r => r.url);            // multi-image reference array for Seedream
+    } else {
+      // No references selected — fall back to the plan's presenter description.
+      prompt = ((state.plan && state.plan.presenter) ? state.plan.presenter + ". " : "") + s.prompt + SAFETY_SUFFIX;
+      image = null;
+    }
   }
   const seed = opts.newSeed ? Math.floor(Math.random() * 2147483000) : (s.seed ?? undefined);
   s.seed = seed;
   setStory(i, opts.editInstruction ? "editing…" : "generating…", "run");
   try {
     const d = await api("/api/seedream", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, size: "2K", image: anchor, seed, optimize_prompt: false }) });
+      body: JSON.stringify({ prompt, size: "2K", image, seed, optimize_prompt: false }) });
     s.url = d.url; s.approved = false; renderStory();
     setStory(i, opts.editInstruction ? "edited" : "generated", "ok");
-    if (!state.storyAnchor && s.url) state.storyAnchor = s.url;  // first frame becomes identity anchor
   } catch (e) { setStory(i, "error", "err"); toast(`${s.label}: ${e.message}`, true); }
 }
 function renderStory() {
   const wrap = $("#storyCards"); wrap.innerHTML = "";
-  const idBanner = el("div", "refinfo");
-  idBanner.innerHTML = state.storyAnchor
-    ? `👤 <b>Identity source:</b> your Brand-Kit reference image — every frame will match that exact person. The prompts below control pose &amp; scene only (they don't describe the person).`
-    : `👤 <b>No reference set.</b> The first frame you generate uses the plan's presenter description and then becomes the identity anchor for the rest. Tip: add a presenter image in <b>Brand Kit</b> (Step 3) to control who appears.`;
-  wrap.appendChild(idBanner);
+  const banner = el("div", "refinfo");
+  banner.innerHTML = state.refs.length
+    ? `🎯 <b>References drive appearance.</b> Toggle which Brand-Kit references each frame uses — the person, the product, the logo. Selected ones are bound as <code>@Image 1</code>, <code>@Image 2</code>… so Seedream reproduces that exact person AND that exact product (no re-inventing). The prompt controls pose &amp; scene only.`
+    : `👤 <b>No references yet.</b> Frames will use the plan's presenter description only. Add a <b>Presenter</b> and <b>Product</b> in <b>Brand Kit</b> (Step 3) to lock the exact person and product.`;
+  wrap.appendChild(banner);
   state.story.forEach((s, i) => {
+    if (!s.useRefs || s.useRefs.length !== state.refs.length) s.useRefs = defaultUseRefs();
+    const sel = selectedRefs(s);
+    const chips = state.refs.map((r, idx) => {
+      const on = s.useRefs[idx];
+      const n = on ? sel.indexOf(r) + 1 : 0;   // @Image N among selected
+      return `<button class="refchip ${on ? "on " + refRoleColor(r.role) : ""}" data-chip="${i}:${idx}" title="${esc(r.name)}">
+        <img src="${esc(r.url)}">${on ? `<b>@${n}</b>` : ""} ${esc(r.role)}</button>`;
+    }).join("");
     const c = el("div", "card" + (s.approved ? " approved" : ""));
     c.innerHTML = `<div class="head"><b>${esc(s.label)}</b><span class="status" id="ss-${i}">${esc(s._st || "")}</span></div>
       <div class="media">${s.url ? `<img src="${esc(s.url)}">` : "not generated yet"}</div>
       <div class="body">
+        ${state.refs.length ? `<div class="chiprow">${chips}</div>` : ""}
         <label style="color:var(--muted);font-size:12px">Keyframe prompt (edit before generating)
           <textarea id="sp-${i}" rows="4">${esc(s.prompt)}</textarea>
         </label>
@@ -260,6 +297,9 @@ $("#genStoryBtn").addEventListener("click", async () => {
 });
 $("#resetStoryBtn").addEventListener("click", () => { initStoryboard(); toast("Reloaded prompts from the plan"); });
 $("#storyCards").addEventListener("click", async e => {
+  const chip = e.target.closest("[data-chip]");
+  if (chip) { const [i, idx] = chip.dataset.chip.split(":").map(Number); const s = state.story[i];
+    s.useRefs[idx] = !s.useRefs[idx]; renderStory(); return; }
   const b = e.target.closest("[data-act]"); if (!b) return;
   const i = +b.dataset.i, act = b.dataset.act, s = state.story[i];
   if (act === "gen") return storyGenerate(i, { newSeed: !!s.url });
@@ -274,8 +314,8 @@ $("#storyCards").addEventListener("click", async e => {
 // STEP 5 generate
 function collectRefs() {
   const imgs = state.refs.map(r => r.ref);
-  const labels = state.refs.map(r => r.kind);
-  state.story.filter(s => s.approved && s.url).forEach(s => { imgs.push(s.url); labels.push(`approved ${s.label} storyboard frame (anchor this composition)`); });
+  const labels = state.refs.map(r => roleBinding(r.role, r.name));
+  state.story.filter(s => s.approved && s.url).forEach(s => { imgs.push(s.url); labels.push(`approved ${s.label} storyboard frame — anchor this exact composition`); });
   const auds = (state.voMode === "B" && state.voRef) ? [state.voRef] : [];
   return { imgs, auds, labels };
 }
