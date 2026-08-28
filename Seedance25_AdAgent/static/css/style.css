@@ -68,6 +68,15 @@ textarea { resize:vertical; font-size:13px; width:100%; }
   border-radius:8px; padding:8px 12px; cursor:pointer; font:inherit; font-size:13px; }
 .hookchip:hover { border-color:var(--accent2); }
 .hookchip.on { border-color:var(--ok); background:rgba(46,160,67,.12); }
+.finalprompt, .inspect { font-size:12px; margin-top:2px; }
+.finalprompt summary, .inspect summary { cursor:pointer; color:var(--accent2); padding:4px 0; }
+.finalprompt .fp-body { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:9px 11px;
+  color:var(--text); line-height:1.45; white-space:pre-wrap; }
+.inspect .fp-body { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:9px 11px; color:var(--muted); }
+.inspect pre { white-space:pre-wrap; word-break:break-all; max-height:220px; overflow:auto; font-size:11px; margin:4px 0 0; }
+.inspimgs { display:flex; gap:8px; margin-top:6px; flex-wrap:wrap; }
+.inspimgs span { display:flex; flex-direction:column; align-items:center; font-size:10px; color:var(--muted); }
+.inspimgs img { width:52px; height:52px; object-fit:cover; border-radius:6px; border:1px solid var(--line); }
 .refinfo { font-size:13px; color:var(--muted); background:var(--card); border:1px solid var(--line);
   border-radius:10px; padding:10px 13px; } .refinfo b { color:var(--text); }
 #storyCards .refinfo { grid-column:1 / -1; }

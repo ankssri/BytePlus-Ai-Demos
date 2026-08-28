@@ -313,7 +313,7 @@ function refClause(role, tags, product) {
   if (role === "Presenter")
     return `The presenter is the person from ${tags}; their face, identity, skin tone, hair, build and proportions must match ${tags} exactly`;
   if (role === "Product")
-    return `Feature the exact ${product} from ${tags} — its design, colour, materials, proportions and any markings/branding completely unchanged; it stays the clear focal point of the shot`;
+    return `Wherever ${product} appears in this scene it MUST be the exact ${product} shown in ${tags} — identical design, colour, materials, proportions, pattern, sole/tread, logo and all markings; do NOT substitute, restyle or invent a different ${product}`;
   if (role === "Logo")
     return `Include the exact brand logo from ${tags}, its shape and colours unchanged`;
   if (role === "Style")
@@ -330,14 +330,35 @@ function roleBinding(role, name) {
   return `${name || "a reference image"}`;
 }
 
-// Build the ordered list of selected refs for a frame (used for @Image numbering).
+// Build the ordered list of selected refs for a frame (used for @imageN numbering).
 function selectedRefs(s) {
   return state.refs.filter((_, idx) => s.useRefs && s.useRefs[idx]);
 }
 
+// The Seedream-native reference clauses for a frame (cited inline as @image1, @image2…),
+// grouped by role. Returns {clauses, image[], hasRefs}. Numbering matches send order.
+function composeRefClauses(s) {
+  const refs = selectedRefs(s);
+  if (!refs.length) return { clauses: "", image: null, hasRefs: false };
+  const product = (state.plan && state.plan.product) || "the product";
+  const byRole = {};
+  refs.forEach((r, n) => { (byRole[r.role] = byRole[r.role] || []).push(`@image${n + 1}`); });
+  const order = ["Presenter", "Product", "Logo", "Style", "Other"];
+  const clauses = order.filter(rl => byRole[rl]).map(rl => refClause(rl, byRole[rl].join(" and "), product)).join(". ");
+  return { clauses, image: refs.map(r => r.url), hasRefs: true };
+}
+// The FULL prompt that is actually sent to Seedream for this frame — reference clauses
+// (@image1/@image2 …) + the scene text + safety suffix. This is shown live on each card.
+function composeStoryFullPrompt(s, sceneText) {
+  const scene = (sceneText != null ? sceneText : s.prompt || "").trim();
+  const { clauses, hasRefs } = composeRefClauses(s);
+  if (hasRefs) return `${clauses}. ${scene}${SAFETY_SUFFIX}`;
+  return ((state.plan && state.plan.presenter) ? state.plan.presenter + ". " : "") + scene + SAFETY_SUFFIX;
+}
+
 async function storyGenerate(i, opts = {}) {
   const s = state.story[i];
-  // Honor the user's edited prompt from the textarea.
+  // Honor the user's edited scene prompt from the textarea.
   const ta = $(`#sp-${i}`); if (ta && !opts.editInstruction) s.prompt = ta.value.trim();
 
   let prompt, image;
@@ -346,33 +367,21 @@ async function storyGenerate(i, opts = {}) {
     prompt = `${opts.editInstruction}. Keep the same people, product and scene; only apply this change. Photorealistic, vertical 9:16.`;
     image = opts.editImage;
   } else {
-    const refs = selectedRefs(s);
-    if (refs.length) {
-      // Seedream-native: cite each reference inline as @imageN (numbered by send order),
-      // grouped by role so several images of one subject bind together (Kling "Elements").
-      const product = (state.plan && state.plan.product) || "the product";
-      const byRole = {};
-      refs.forEach((r, n) => { (byRole[r.role] = byRole[r.role] || []).push(`@image${n + 1}`); });
-      const order = ["Presenter", "Product", "Logo", "Style", "Other"];
-      const clauses = order.filter(rl => byRole[rl]).map(rl => refClause(rl, byRole[rl].join(" and "), product));
-      // Scene describes pose/action/environment/camera/lighting (identity/product come from refs).
-      prompt = `${clauses.join(". ")}. ${s.prompt}${SAFETY_SUFFIX}`;
-      image = refs.map(r => r.url);            // multi-image reference array for Seedream, in @imageN order
-    } else {
-      // No references selected — fall back to the plan's presenter description.
-      prompt = ((state.plan && state.plan.presenter) ? state.plan.presenter + ". " : "") + s.prompt + SAFETY_SUFFIX;
-      image = null;
-    }
+    prompt = composeStoryFullPrompt(s);                 // <- same string the card previews
+    image = composeRefClauses(s).image;                 // multi-image array in @imageN order
   }
   const seed = opts.newSeed ? Math.floor(Math.random() * 2147483000) : (s.seed ?? undefined);
   s.seed = seed;
+  const imgs = Array.isArray(image) ? image : (image ? [image] : []);
+  s._req = { prompt, images: imgs };   // captured for the Inspect panel
   setStory(i, opts.editInstruction ? "editing…" : "generating…", "run");
   try {
     const d = await api("/api/seedream", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt, size: "2K", image, seed, optimize_prompt: false }) });
+    s._resp = d.raw || d;              // raw Seedream response for the Inspect panel
     s.url = d.url; s.approved = false; renderStory();
     setStory(i, opts.editInstruction ? "edited" : "generated", "ok");
-  } catch (e) { setStory(i, "error", "err"); toast(`${s.label}: ${e.message}`, true); }
+  } catch (e) { s._resp = { error: e.message }; setStory(i, "error", "err"); toast(`${s.label}: ${e.message}`, true); }
 }
 function renderStory() {
   const wrap = $("#storyCards"); wrap.innerHTML = "";
@@ -395,9 +404,14 @@ function renderStory() {
       <div class="media">${s.url ? `<img src="${esc(s.url)}">` : "not generated yet"}</div>
       <div class="body">
         ${state.refs.length ? `<div class="chiprow">${chips}</div>` : ""}
-        <label style="color:var(--muted);font-size:12px">Keyframe prompt (edit before generating)
-          <textarea id="sp-${i}" rows="4">${esc(s.prompt)}</textarea>
+        <label style="color:var(--muted);font-size:12px">Scene (pose / action / environment — edit before generating)
+          <textarea id="sp-${i}" rows="3">${esc(s.prompt)}</textarea>
         </label>
+        <details class="finalprompt" ${s.url ? "" : "open"}><summary>Full prompt actually sent to Seedream (references auto-woven)</summary>
+          <div class="fp-body" id="fp-${i}">${esc(composeStoryFullPrompt(s))}</div></details>
+        ${(s._req || s._resp) ? `<details class="inspect"><summary>🔍 Inspect request &amp; response</summary>
+          <div class="fp-body">Images sent: <b>${(s._req && s._req.images.length) || 0}</b>${(s._req && s._req.images.length) ? `<div class="inspimgs">${s._req.images.map((u, k) => `<span>@image${k + 1}<img src="${esc(u)}"></span>`).join("")}</div>` : ""}
+          <div style="margin-top:6px">Raw Seedream response:</div><pre>${esc(JSON.stringify(s._resp || {}, null, 2)).slice(0, 2500)}</pre></div></details>` : ""}
         <div class="actions">
           <button class="btn primary small" data-act="gen" data-i="${i}">${s.url ? "↻ Regenerate" : "Generate"}</button>
           <button class="btn small" data-act="edit" data-i="${i}" ${s.url ? "" : "disabled"}>✎ Edit image</button>
@@ -416,6 +430,12 @@ $("#genStoryBtn").addEventListener("click", async () => {
   toast("Done — Edit/Regenerate any frame, then Approve the ones to anchor");
 });
 $("#resetStoryBtn").addEventListener("click", () => { initStoryboard(); toast("Reloaded prompts from the plan"); });
+// Live-update the "full prompt" preview as the scene text is edited.
+$("#storyCards").addEventListener("input", e => {
+  const ta = e.target.closest("textarea[id^='sp-']"); if (!ta) return;
+  const i = +ta.id.slice(3); const s = state.story[i]; if (!s) return;
+  const fp = $(`#fp-${i}`); if (fp) fp.textContent = composeStoryFullPrompt(s, ta.value);
+});
 $("#storyCards").addEventListener("click", async e => {
   const chip = e.target.closest("[data-chip]");
   if (chip) { const [i, idx] = chip.dataset.chip.split(":").map(Number); const s = state.story[i];
