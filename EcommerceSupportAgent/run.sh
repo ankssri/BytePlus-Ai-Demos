@@ -2,7 +2,6 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-# Prefer python3 (macOS default); fall back to python if that's what's on PATH.
 if command -v python3 >/dev/null 2>&1; then
   PY=python3
 elif command -v python >/dev/null 2>&1; then
@@ -12,7 +11,17 @@ else
   exit 1
 fi
 
-"$PY" -m pip install -q --user -r requirements.txt || "$PY" -m pip install -q -r requirements.txt
+VENV=".venv"
+if [ ! -d "$VENV" ]; then
+  echo "Creating virtualenv in $VENV ..."
+  "$PY" -m venv "$VENV"
+fi
+# shellcheck disable=SC1091
+source "$VENV/bin/activate"
+
+python -m pip install --upgrade pip >/dev/null
+python -m pip install -q -r requirements.txt
+
 export PORT="${PORT:-8000}"
 echo "Open http://localhost:$PORT"
-exec "$PY" app.py
+exec python app.py
