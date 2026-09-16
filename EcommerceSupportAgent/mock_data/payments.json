@@ -1,0 +1,9 @@
+{
+  "PAY9001": {"payment_id": "PAY9001", "order_id": "O5001", "method": "card", "amount": 149.00, "captured": true, "refunded": 0.00},
+  "PAY9002": {"payment_id": "PAY9002", "order_id": "O5002", "method": "card", "amount": 78.00,  "captured": true, "refunded": 0.00},
+  "PAY9003": {"payment_id": "PAY9003", "order_id": "O5003", "method": "wallet", "amount": 329.00, "captured": true, "refunded": 0.00},
+  "PAY9004": {"payment_id": "PAY9004", "order_id": "O5004", "method": "card", "amount": 27.00,  "captured": true, "refunded": 0.00},
+  "PAY9005": {"payment_id": "PAY9005", "order_id": "O5005", "method": "card", "amount": 199.00, "captured": true, "refunded": 0.00},
+  "PAY9006": {"payment_id": "PAY9006", "order_id": "O5006", "method": "card", "amount": 149.00, "captured": true, "refunded": 0.00},
+  "PAY9007": {"payment_id": "PAY9007", "order_id": "O5007", "method": "card", "amount": 329.00, "captured": true, "refunded": 0.00}
+}

@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>VoltMart Support Agent</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="stylesheet" href="/static/styles.css"/>
+</head>
+<body>
+<header>
+  <div class="brand">Volt<span>Mart</span> · Customer Support Agent</div>
+  <nav>
+    <a href="/" class="active">Chat</a>
+    <a href="/dashboard">Audit Dashboard</a>
+  </nav>
+</header>
+
+<main>
+  <div class="card">
+    <h1>Talk to the agent</h1>
+    <div class="hint">
+      Try a mix of read-only questions and irreversible actions. Sample orders below.
+    </div>
+    <div class="chips">
+      <button onclick="preset('What is your return policy?')">FAQ: return policy</button>
+      <button onclick="preset('How long does a refund take?')">FAQ: refund timing</button>
+      <button onclick="preset('Where is my order O5003?')">Order status O5003</button>
+      <button onclick="preset('I want to return order O5001')">Return O5001 (auto)</button>
+      <button onclick="preset('I want to return order O5007')">Return O5007 (needs human)</button>
+      <button onclick="preset('Return order O5004')">Return O5004 (final sale)</button>
+      <button onclick="preset('Return order O5003')">Return O5003 (not delivered)</button>
+      <button onclick="preset('I want to speak to a human')">Human handoff</button>
+    </div>
+
+    <div id="chat" class="chat"></div>
+
+    <div class="inputrow">
+      <input id="q" placeholder="Ask about your order, refund, or store policy…" onkeydown="if(event.key==='Enter')send()"/>
+      <button onclick="send()">Send</button>
+      <button class="secondary" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Design notes (visible during demo)</h2>
+    <ul>
+      <li><b>Orchestrator</b> classifies intent → routes to FAQ / order-status / return-refund sub-agent.</li>
+      <li>Every step logged to SQLite so a crashed case is resumable from the last completed step.</li>
+      <li>Reads are auto-executed; writes (refund, status update, label) go through <b>idempotency keys</b>.</li>
+      <li>Refund needs <b>policy match + human approval</b> when amount &gt; $250 or customer is unverified.</li>
+      <li>Each downstream system (user, product, order, payment, shipping, policy) is behind its own MCP.</li>
+      <li>Tool calls have a per-server <b>circuit breaker</b> and per-case <b>step ceiling</b> (12 steps).</li>
+      <li>FAQ answers served from a static <b>cache</b> when they match a known pattern (no LLM / no downstream call).</li>
+    </ul>
+  </div>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

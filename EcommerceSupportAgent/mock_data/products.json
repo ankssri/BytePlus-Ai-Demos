@@ -1,0 +1,7 @@
+{
+  "P2001": {"product_id": "P2001", "name": "Aurora Wireless Headphones", "category": "audio", "price": 149.00, "return_window_days": 30, "final_sale": false},
+  "P2002": {"product_id": "P2002", "name": "Nimbus 4K Action Camera",    "category": "camera", "price": 329.00, "return_window_days": 30, "final_sale": false},
+  "P2003": {"product_id": "P2003", "name": "Volt 65W GaN Charger",       "category": "accessory", "price": 39.00,  "return_window_days": 15, "final_sale": false},
+  "P2004": {"product_id": "P2004", "name": "Photon Smart LED Bulb (Clearance)", "category": "smart-home", "price": 9.00, "return_window_days": 0,  "final_sale": true},
+  "P2005": {"product_id": "P2005", "name": "Pulse Fitness Watch",        "category": "wearable", "price": 199.00, "return_window_days": 30, "final_sale": false}
+}

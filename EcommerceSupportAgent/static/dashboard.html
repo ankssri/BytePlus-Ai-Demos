@@ -1,0 +1,106 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Audit Dashboard · VoltMart</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="stylesheet" href="/static/styles.css"/>
+</head>
+<body>
+<header>
+  <div class="brand">Volt<span>Mart</span> · Audit Dashboard</div>
+  <nav>
+    <a href="/">Chat</a>
+    <a href="/dashboard" class="active">Audit Dashboard</a>
+  </nav>
+</header>
+
+<main>
+  <div class="card">
+    <h2>Overview</h2>
+    <div class="grid" id="stats"></div>
+  </div>
+
+  <div class="card">
+    <h2>Cases</h2>
+    <table id="cases">
+      <thead><tr><th>Case</th><th>When</th><th>Intent</th><th>Status</th><th>Outcome</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="card" id="detailWrap" style="display:none">
+    <h2>Case detail</h2>
+    <div id="detail"></div>
+  </div>
+</main>
+
+<script>
+async function load(){
+  const s = await (await fetch("/api/stats")).json();
+  const grid = document.getElementById("stats");
+  grid.innerHTML = "";
+  const stats = [
+    ["Total cases", s.total_cases],
+    ["Success rate", s.success_rate_pct + "%"],
+    ["Write actions", s.write_actions],
+    ["FAQ cache hits", s.faq_cache_hits],
+    ["Human handoffs", s.human_handoffs],
+    ["Done", s.by_status?.done || 0],
+    ["Running", s.by_status?.running || 0],
+    ["Failed", s.by_status?.failed || 0],
+  ];
+  for (const [l,n] of stats){
+    grid.insertAdjacentHTML("beforeend", `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`);
+  }
+  const c = await (await fetch("/api/cases")).json();
+  const tb = document.querySelector("#cases tbody");
+  tb.innerHTML = "";
+  for (const row of c.cases){
+    const t = new Date(row.created*1000).toLocaleString();
+    tb.insertAdjacentHTML("beforeend", `
+      <tr>
+        <td><code>${row.case_id}</code></td>
+        <td>${t}</td>
+        <td>${row.intent}</td>
+        <td class="status-${row.status}">${row.status}</td>
+        <td>${(row.outcome||"").slice(0,80)}</td>
+        <td><button onclick="detail('${row.case_id}')">view</button></td>
+      </tr>`);
+  }
+}
+
+async function detail(id){
+  const c = await (await fetch("/api/case/"+id)).json();
+  const div = document.getElementById("detail");
+  const rows = c.steps.map(s => `
+    <tr>
+      <td>${new Date(s.ts*1000).toLocaleTimeString()}</td>
+      <td>${s.agent}</td>
+      <td><code>${s.action}</code> <span class="pill ${s.side_effect==='write'?'write':(s.side_effect==='read'?'read':'')}">${s.side_effect}</span></td>
+      <td>${s.ok? '<span class="status-done">ok</span>':'<span class="status-failed">err</span>'}</td>
+      <td><details><summary>input</summary><pre>${escape(JSON.stringify(s.input,null,2))}</pre></details>
+          <details><summary>output</summary><pre>${escape(JSON.stringify(s.output,null,2))}</pre></details>
+          ${s.idempotency_key? `<div>idem: <code>${s.idempotency_key}</code></div>`:""}
+      </td>
+    </tr>`).join("");
+  div.innerHTML = `
+    <div><b>Case:</b> <code>${c.case_id}</code> · intent <b>${c.intent}</b> · status <b class="status-${c.status}">${c.status}</b></div>
+    <div style="margin:6px 0"><b>User query:</b> ${escape(c.user_query)}</div>
+    <div><b>Outcome:</b> ${escape(c.outcome||'')}</div>
+    <table style="margin-top:10px">
+      <thead><tr><th>time</th><th>agent</th><th>action</th><th></th><th>i/o</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="margin-top:8px"><a href="/api/case/${c.case_id}/resume" target="_blank">Resume plan JSON →</a></div>
+  `;
+  document.getElementById("detailWrap").style.display = "block";
+}
+
+function escape(s){ return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]); }
+
+load();
+setInterval(load, 5000);
+</script>
+</body>
+</html>

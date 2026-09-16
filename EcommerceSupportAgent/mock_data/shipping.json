@@ -1,0 +1,9 @@
+{
+  "O5001": {"order_id": "O5001", "carrier": "SwiftShip", "tracking": "SS-8891-AA", "status": "delivered", "eta": "2026-08-24", "last_scan": "Delivered - front door, 2026-08-24 14:12"},
+  "O5002": {"order_id": "O5002", "carrier": "SwiftShip", "tracking": "SS-8892-AB", "status": "delivered", "eta": "2026-07-05", "last_scan": "Delivered - mailroom, 2026-07-05 10:03"},
+  "O5003": {"order_id": "O5003", "carrier": "GlobeEx",   "tracking": "GX-4410-CC", "status": "in_transit", "eta": "2026-09-18", "last_scan": "Departed hub SIN, 2026-09-15 22:41"},
+  "O5004": {"order_id": "O5004", "carrier": "SwiftShip", "tracking": "SS-8893-AC", "status": "delivered", "eta": "2026-09-04", "last_scan": "Delivered - reception, 2026-09-04 09:20"},
+  "O5005": {"order_id": "O5005", "carrier": "GlobeEx",   "tracking": "GX-4411-CD", "status": "delivered", "eta": "2026-09-08", "last_scan": "Delivered - locker, 2026-09-08 18:44"},
+  "O5006": {"order_id": "O5006", "carrier": "SwiftShip", "tracking": "SS-7712-BB", "status": "delivered", "eta": "2026-06-03", "last_scan": "Delivered - front door, 2026-06-03 11:22"},
+  "O5007": {"order_id": "O5007", "carrier": "SwiftShip", "tracking": "SS-8894-AD", "status": "delivered", "eta": "2026-09-06", "last_scan": "Delivered - front door, 2026-09-06 15:31"}
+}
