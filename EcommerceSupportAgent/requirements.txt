@@ -2,5 +2,6 @@ fastapi==0.115.0
 uvicorn[standard]==0.30.6
 pydantic==2.9.2
 python-multipart==0.0.9
-byteplus-python-sdk-v2
-byteplus-sdk-ark-runtime
+# Optional: install only if you want to use BytePlus ModelArk for the LLM
+# (the demo runs fine offline without it). See README.
+# pip install 'volcengine-python-sdk[ark]'   # or the SDK your Ark console prescribes

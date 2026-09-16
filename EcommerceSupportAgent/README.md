@@ -17,13 +17,20 @@ Open:
 - Audit dashboard http://localhost:8000/dashboard
 
 The demo runs offline out of the box (rule-based classifier + templated
-answers). To use BytePlus ModelArk for the LLM parts, export:
+answers). To use BytePlus ModelArk for the LLM parts:
 
 ```bash
+# 1. Install the Ark SDK your console prescribes, e.g.:
+pip install 'volcengine-python-sdk[ark]'
+# 2. Export credentials:
 export ARK_API_KEY=<your key>
 export ARK_MODEL=ep-2025xxxxxxxxxx           # your Ark endpoint id
 # optional: ARK_BASE_URL=https://ark.ap-southeast.bytepluses.com/api/v3
 ```
+
+`core/llm.py` imports the SDK lazily and falls back to the offline
+classifier if it can't be loaded, so nothing breaks when the SDK is
+absent.
 
 ## What to try
 
