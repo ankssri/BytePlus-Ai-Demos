@@ -7,6 +7,7 @@ Sample code, demo applications for BytePlus LLM, Images, Video, VectorDB, AiAgen
 - **A2A**: Agent-to-Agent communication framework
 - **AIDressUp**: AI-powered virtual clothing try-on
 - **HiAgent**: Intelligent agent framework
+- **Higgsfield_Seedance25_Demo**: Streamlit app generating videos from reference images via the Higgsfield API (Seedance 2.5 image-to-video)
 - **KnowledgeBase_Demo**: Knowledge base creation and management
 - **ModelArkAPIs**: Examples of ModelArk API usage
 - **ModelComparison**: Tools for comparing different AI models
