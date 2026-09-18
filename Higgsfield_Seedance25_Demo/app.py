@@ -10,6 +10,8 @@ Credentials are loaded at runtime from `.env.local` (git-ignored) as
 itself, so the value is never handled, printed, or logged by this app.
 """
 
+from __future__ import annotations
+
 import io
 import os
 import mimetypes
