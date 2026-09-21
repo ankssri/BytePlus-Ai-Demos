@@ -4,3 +4,7 @@ pydantic>=2.10
 python-multipart>=0.0.9
 # Optional: BytePlus ModelArk SDK. The demo runs offline without it.
 # See README for the install command your Ark console prescribes.
+
+# Optional: Jev (TypeSafe System One) for typed intent + FAQ routing.
+# Enabled at runtime only when TYPESAFE_API_KEY is also set.
+jev>=0.3.0

@@ -32,6 +32,26 @@ export ARK_MODEL=ep-2025xxxxxxxxxx           # your Ark endpoint id
 classifier if it can't be loaded, so nothing breaks when the SDK is
 absent.
 
+### Optional: Jev (TypeSafe System One) for typed routing
+
+`core/jev_ai.py` uses the [`jev`](https://pypi.org/project/jev/) SDK to
+turn intent classification and FAQ routing into typed judgments with
+calibrated probabilities, instead of prompt-and-parse. It's enabled
+automatically when the SDK is installed **and** `TYPESAFE_API_KEY` is
+exported:
+
+```bash
+pip install jev
+export TYPESAFE_API_KEY=<get one at console.typesafe.ai>
+```
+
+- `Orchestrator._classify()` asks Jev for a `Literal["faq"|"order_status"|"return_refund"|"human_handoff"|"unclear"]`. An `unclear` answer routes to a human instead of guessing.
+- `FAQAgent.handle()` uses Jev as a **semantic** router into the same static FAQ cache — so a paraphrase like "when will my money come back?" still hits `faq.refund_time` without a downstream call or LLM draft.
+
+If the SDK isn't installed or the key isn't set, both call sites fall
+back to the regex + LLM path silently. Nothing else in the pipeline
+changes.
+
 ## What to try
 
 | Prompt                                    | What happens                                                    |
